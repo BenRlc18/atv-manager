@@ -64,6 +64,7 @@ Sur iPhone et Android, « Ajouter à l'écran d'accueil » l'installe comme une 
 | `PORT` | Port de l'interface | `8420` |
 | `SCAN_SUBNETS` | Réseaux à scanner, par exemple `192.168.1.0/24` | détection automatique |
 | `ANDROID_ADB_SERVER_PORT` | Port du serveur ADB interne (5038 dans l'image Docker, pour ne pas entrer en conflit avec un autre adb) | `5037` |
+| `DOWNLOADER_CODE` | Code court Downloader (go.aftvnews.com) affiché pour installer ATVM Connect | aucun |
 | `TAILSCALE_SOCKET` | Socket du démon Tailscale (option Tailscale) | `/var/run/tailscale/tailscaled.sock` |
 
 Pour l'option Tailscale en Docker, monte le socket : `-v /var/run/tailscale:/var/run/tailscale:ro`.

@@ -134,7 +134,7 @@ function promptBox({ title, label, value = '', placeholder = '' }) {
 
 async function loadState() {
   const st = await api('/api/state');
-  Object.assign(S, { user: st.user, devices: st.devices, settings: st.settings || S.settings, levels: st.levels, version: st.version, subnets: st.subnets, loaded: true });
+  Object.assign(S, { features: st.features || {}, user: st.user, devices: st.devices, settings: st.settings || S.settings, levels: st.levels, version: st.version, subnets: st.subnets, loaded: true });
   drawChrome();
 }
 
@@ -554,6 +554,7 @@ async function viewDevice(rid, id) {
       <div class="spec"><span class="k">Allumée depuis</span><span class="v t3">—</span></div>
     </div></div>
     <div id="conn-error"></div>
+    ${isAdmin() && d.remote && !viaAgent(d) && !d.tsTagged ? `<div class="note attn" id="ts-isolate-box">${ic('alert')}<div class="stack"><span><b>TV Tailscale sans étiquette :</b> elle peut voir tout ton réseau Tailscale, et sa clé expirera dans quelques mois.</span><div><button class="btn sm" id="ts-isolate">Isoler cette TV (${esc(S.settings.tailscale.tag || 'tag:tvbox')}, clé sans expiration)</button></div></div></div>` : ''}
 
     <section class="section">
       <div class="section-head"><h2>Optimisation</h2><p>Chaque niveau inclut le précédent. Tout est réversible depuis l'historique.</p></div>
@@ -597,6 +598,16 @@ async function viewDevice(rid, id) {
     </div>` : ''}`;
 
   if (isAdmin()) adminDeviceControls(rid, d);
+  $('#ts-isolate')?.addEventListener('click', async (e) => {
+    if (!S.settings.tailscale.hasApiKey) { toast('Ajoute d’abord une clé API Tailscale dans Réglages.', 'error'); return; }
+    busy(e.currentTarget, true, 'Isolation…');
+    try {
+      const r = await api(`/api/devices/${encodeURIComponent(d.id)}/ts-isolate`, { method: 'POST' });
+      toast(`${r.name} : étiquette ${r.tag} posée, clé sans expiration.`);
+      $('#ts-isolate-box')?.remove();
+      await loadState();
+    } catch (err) { toast(err.message, 'error'); busy(e.currentTarget, false); }
+  });
   bindForget(d);
   drawHistory(rid, id);
   loadDeviceStats(rid, id);
@@ -978,8 +989,8 @@ async function viewAddRemote(rid) {
       <ol class="steps">
         <li><div><h3>Active le débogage sur la TV</h3><p>Suis le <a href="#/guide">guide de connexion</a> (étapes 1 et 2). Active bien le <b>débogage réseau</b> ou le <b>débogage ADB via le réseau</b> s'il existe.</p></div></li>
         <li><div><h3>Installe ATVM Connect</h3>
-          <p>Sur la TV, installe l'appli <b>Downloader</b> depuis le Play Store, ouvre-la et tape cette adresse :</p>
-          <div class="copy-line"><span class="mono">${esc(apk)}</span><button class="btn sm" data-copyline="${esc(`https://${apk}`)}">${ic('copy')}Copier</button></div>
+          <p>Sur la TV, installe l'appli <b>Downloader</b> depuis le Play Store, ouvre-la et tape ${S.features.downloaderCode ? 'ce code' : 'cette adresse'} :</p>
+          ${S.features.downloaderCode ? `<div class="pair-code mono">${esc(S.features.downloaderCode)}</div><p class="sm t3">ou l'adresse <span class="mono">${esc(apk)}</span></p>` : `<div class="copy-line"><span class="mono">${esc(apk)}</span><button class="btn sm" data-copyline="${esc(`https://${apk}`)}">${ic('copy')}Copier</button></div>`}
           <p>Lance le téléchargement puis <b>Installer</b>. Si Android le demande, autorise Downloader à installer des applis.</p></div></li>
         <li><div><h3>Associe la TV</h3>
           <p>Ouvre ATVM Connect sur la TV et entre l'adresse <span class="mono">${esc(location.origin)}</span> puis ce code :</p>
@@ -987,6 +998,20 @@ async function viewAddRemote(rid) {
         <li><div><h3>Autorise le débogage</h3><p>La TV affiche « Autoriser le débogage ? » : coche <b>Toujours autoriser</b> et valide. La TV apparaît alors automatiquement ici et dans <a href="#/">${isAdmin() ? 'Appareils' : 'Mes TV'}</a>.</p></div></li>
       </ol>
     </div>
+    ${S.features.tailscale ? `
+    <div class="panel">
+      <details class="disclose" style="border-top:0">
+        <summary>${ic('chevron')}Autre méthode : Tailscale (avancé)</summary>
+        <div class="body">
+          <p>Si la TV utilise déjà Tailscale, ou si ATVM Connect ne fonctionne pas sur ce modèle.</p>
+          <ol>
+            <li>Sur la TV : active le débogage (<a href="#/guide">guide</a>), installe <b>Tailscale</b> depuis le Play Store et ouvre-le.</li>
+            <li>Choisis <b>Log in</b> : la TV affiche un <b>code</b>. Envoie-le à l'administrateur d'ATV Manager.</li>
+            <li>L'administrateur saisit le code dans sa console Tailscale (Add device › Input code), lance la recherche dans ATV Manager, isole la TV et te la partage.</li>
+          </ol>
+        </div>
+      </details>
+    </div>` : ''}
     <div class="note">${ic('shield')}<div>ATVM Connect ne fait rien tout seul : il exécute uniquement les optimisations que tu lances ici, et tu peux le retirer à tout moment depuis la fiche de la TV.</div></div>`;
 
   $$('[data-copyline]').forEach((b) => b.addEventListener('click', () => copyText(b.dataset.copyline, 'Adresse copiée.')));
@@ -1352,6 +1377,14 @@ async function viewSettings(rid) {
             <div class="note warn">${ic('alert')}<div><b>Réservé aux personnes qui savent configurer Tailscale.</b> Mal réglé, il peut exposer ta TV ou ton réseau. Pour la TV de ton salon, tu n'en as pas besoin.</div></div>
             ${ts ? '' : `<label class="check"><input type="checkbox" id="ts-ack"><span>J'ai compris, je sais configurer Tailscale.</span></label>`}
             <div id="ts-status"></div>
+            ${ts ? `<form id="ts-api" class="section" style="gap:10px">
+              <div class="form-row">
+                <label class="field">Clé API Tailscale (optionnelle)<input class="input lg mono" type="password" name="apiKey" autocomplete="off" placeholder="${S.settings.tailscale.hasApiKey ? 'Clé enregistrée, laisse vide pour la garder' : 'tskey-api-…'}"></label>
+                <label class="field narrow" style="flex-basis:150px">Étiquette<input class="input lg mono" type="text" name="tag" value="${esc(S.settings.tailscale.tag || 'tag:tvbox')}"></label>
+              </div>
+              <p class="sm t3">Sert au bouton « Isoler » des TV Tailscale : pose l'étiquette et désactive l'expiration de la clé. À créer dans la console Tailscale (Settings › Keys), elle reste sur ce serveur.</p>
+              <div class="form-row" style="gap:8px"><button class="btn sm primary" type="submit">Enregistrer</button>${S.settings.tailscale.hasApiKey ? '<button class="btn sm quiet" type="button" id="ts-api-del">Supprimer la clé</button>' : ''}</div>
+            </form>` : ''}
           </div>
         </div>
         <details class="disclose">
@@ -1393,6 +1426,23 @@ async function viewSettings(rid) {
 
   bindAccount();
   drawPeople(rid);
+  $('#ts-api')?.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const f = Object.fromEntries(new FormData(ev.target));
+    const body = { tailscale: { tag: f.tag } };
+    if (f.apiKey.trim()) body.tailscale.apiKey = f.apiKey.trim();
+    const btn = ev.target.querySelector('[type=submit]');
+    busy(btn, true, 'Vérification…');
+    try {
+      const r = await api('/api/settings', { method: 'POST', body });
+      S.settings = r.settings;
+      toast(body.tailscale.apiKey ? 'Clé API vérifiée et enregistrée.' : 'Réglages enregistrés.');
+      viewSettings(renderId);
+    } catch (e) { toast(e.message, 'error'); busy(btn, false); }
+  });
+  $('#ts-api-del')?.addEventListener('click', async () => {
+    try { const r = await api('/api/settings', { method: 'POST', body: { tailscale: { apiKey: '' } } }); S.settings = r.settings; toast('Clé API supprimée.'); viewSettings(renderId); } catch (e) { toast(e.message, 'error'); }
+  });
   const toggle = $('#ts-toggle');
   const status = (t) => {
     const box = $('#ts-status');

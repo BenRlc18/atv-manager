@@ -9,6 +9,13 @@ const D = require('./lib/devices');
 const O = require('./lib/optimizer');
 const auth = require('./lib/auth');
 const AG = require('./lib/agents');
+const TS = require('./lib/tailscale');
+
+// Réglages renvoyés à l'interface : la clé API Tailscale n'en sort jamais
+const publicSettings = (s) => ({
+  tailscale: { enabled: !!(s.tailscale && s.tailscale.enabled), hasApiKey: !!(s.tailscale && s.tailscale.apiKey), tag: (s.tailscale && s.tailscale.tag) || 'tag:tvbox' },
+  ai: { enabled: false },
+});
 
 // Lien de téléchargement de l'appli ATVM Connect (redirection depuis /connect.apk, facile à taper dans Downloader)
 const AGENT_APK_URL = process.env.AGENT_APK_URL || 'https://github.com/BenRlc18/atv-manager/releases/latest/download/atvm-connect.apk';
@@ -140,7 +147,8 @@ route('GET', '/api/state', 'user', async (ctx) => {
   return {
     version: VERSION,
     user: auth.publicUser(ctx.user),
-    settings: admin ? store.settings() : null,
+    settings: admin ? publicSettings(store.settings()) : null,
+    features: { tailscale: !!(store.settings().tailscale || {}).enabled, downloaderCode: String(process.env.DOWNLOADER_CODE || store.settings().downloaderCode || '').replace(/\D/g, '') },
     levels: O.LEVELS,
     devices: visibleDevices(ctx.user).map((d) => publicDevice(d, admin)).sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0)),
     subnets: admin ? D.localSubnets() : [],
@@ -237,10 +245,34 @@ route('POST', '/api/devices/:id/open-store', 'user', async (ctx, p) => {
 });
 
 // ---------- Réglages et comptes (administrateur)
+route('POST', '/api/devices/:id/ts-isolate', 'admin', async (ctx, p) => {
+  const all = store.devices();
+  const dev = all[decodeURIComponent(p.id)];
+  if (!dev || !dev.remote || dev.transport === 'agent') throw fail("Cette TV n'est pas reliée par Tailscale.");
+  const r = await TS.isolate(dev.host);
+  dev.tsTagged = true;
+  store.saveDevices(all);
+  return r;
+});
+
 route('POST', '/api/settings', 'admin', async (ctx) => {
   const s = store.settings();
   const { body } = ctx;
-  if (body.tailscale && typeof body.tailscale.enabled === 'boolean') s.tailscale = { enabled: body.tailscale.enabled };
+  const prevTs = s.tailscale || {};
+  if (body.tailscale && typeof body.tailscale.enabled === 'boolean') s.tailscale = { ...prevTs, enabled: body.tailscale.enabled };
+  if (body.tailscale && typeof body.tailscale.apiKey === 'string') {
+    const key = body.tailscale.apiKey.trim();
+    if (key) {
+      if (!/^tskey-api-[\w-]+$/.test(key)) throw fail('Une clé API Tailscale commence par « tskey-api- ».');
+      await TS.test(key);
+    }
+    s.tailscale = { ...s.tailscale, apiKey: key };
+  }
+  if (body.tailscale && typeof body.tailscale.tag === 'string') {
+    const tag = body.tailscale.tag.trim();
+    if (!/^tag:[a-z0-9-]+$/i.test(tag)) throw fail('Une étiquette Tailscale ressemble à « tag:tvbox ».');
+    s.tailscale = { ...s.tailscale, tag };
+  }
   s.ai = { enabled: false }; // l'agent IA n'est pas encore disponible
   store.saveSettings(s);
   let tailscale = null;
@@ -248,7 +280,7 @@ route('POST', '/api/settings', 'admin', async (ctx) => {
     const t = await D.tailscalePeers();
     tailscale = { ok: t.ok, message: t.message || '', peers: t.ok ? t.peers.length : 0, untagged: t.ok ? t.peers.filter((x) => !x.tagged).length : 0 };
   }
-  return { settings: s, tailscale };
+  return { settings: publicSettings(s), tailscale };
 });
 
 route('GET', '/api/admin/users', 'admin', async () => ({ users: auth.listUsers(), invites: auth.listInvites() }));
