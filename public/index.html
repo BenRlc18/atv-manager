@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>ATV Manager</title>
+  <meta name="description" content="Optimise et allège ton Android TV depuis ton navigateur.">
+  <meta name="theme-color" content="#141413" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#f6f5f2" media="(prefers-color-scheme: light)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="ATV Manager">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <link rel="preload" href="/fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar" aria-label="Navigation">
+      <a class="brand" href="#/">
+        <img src="/icon.svg" alt="" width="26" height="26">
+        <span>ATV Manager</span>
+      </a>
+      <nav class="nav" id="nav-side"></nav>
+      <div class="side-devices" id="side-devices"></div>
+      <div class="side-foot" id="side-foot"></div>
+    </aside>
+
+    <div class="content">
+      <header class="mobile-head">
+        <a class="brand" href="#/"><img src="/icon.svg" alt="" width="24" height="24"><span>ATV Manager</span></a>
+      </header>
+      <main id="app" tabindex="-1"></main>
+    </div>
+  </div>
+
+  <nav class="tabbar" id="nav-bottom" aria-label="Navigation"></nav>
+  <div id="toasts" aria-live="polite"></div>
+  <dialog id="modal"></dialog>
+
+  <noscript>ATV Manager a besoin de JavaScript.</noscript>
+  <script src="/vendor/qrcode.min.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
