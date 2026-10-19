@@ -12,12 +12,6 @@ import android.view.inputmethod.EditorInfo
 import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
-import org.json.JSONObject
-import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
 /**
@@ -37,22 +31,17 @@ class MainActivity : Activity() {
     private lateinit var setupTitle: TextView
     private lateinit var setupText: TextView
     private lateinit var setupOpen: Button
-    private lateinit var serverLabel: View
-    private lateinit var server: EditText
-    private lateinit var otherServer: Button
     private lateinit var pairStep: TextView
     private lateinit var intro: TextView
     private lateinit var code: EditText
     private lateinit var pairButton: Button
     private lateinit var error: TextView
-    private lateinit var serverLine: TextView
     private lateinit var connLine: TextView
     private lateinit var adbLine: TextView
     private lateinit var hint: TextView
     private lateinit var openDev: Button
 
     private var skipSetup = false
-    private var customServer = false
     private var shownStep = -1
 
     private val defaultServer: String get() = Prefs.normalizeServer(BuildConfig.DEFAULT_SERVER)
@@ -69,31 +58,24 @@ class MainActivity : Activity() {
         setupTitle = findViewById(R.id.setup_title)
         setupText = findViewById(R.id.setup_text)
         setupOpen = findViewById(R.id.setup_open)
-        serverLabel = findViewById(R.id.server_label)
-        server = findViewById(R.id.server)
-        otherServer = findViewById(R.id.other_server)
         pairStep = findViewById(R.id.pair_step)
         intro = findViewById(R.id.intro)
         code = findViewById(R.id.code)
         pairButton = findViewById(R.id.pair)
         error = findViewById(R.id.error)
-        serverLine = findViewById(R.id.server_line)
         connLine = findViewById(R.id.conn_line)
         adbLine = findViewById(R.id.adb_line)
         hint = findViewById(R.id.hint)
         openDev = findViewById(R.id.open_dev)
 
-        server.setText(prefs.server.ifEmpty { defaultServer }.removePrefix("https://"))
         pairButton.setOnClickListener { pair() }
         code.setOnEditorActionListener { _, actionId, _ -> if (actionId == EditorInfo.IME_ACTION_DONE) { pair(); true } else false }
         findViewById<Button>(R.id.setup_skip).setOnClickListener { skipSetup = true; shownStep = -1; refresh() }
-        otherServer.setOnClickListener { customServer = true; refresh(); server.requestFocus() }
         openDev.setOnClickListener { openSettings(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS) }
         findViewById<Button>(R.id.unpair).setOnClickListener {
             AgentService.stop(this)
             prefs.clearPairing()
-            // Retour au serveur par défaut s'il existe, sinon on garde l'adresse saisie
-            if (defaultServer.isNotEmpty()) { prefs.server = ""; customServer = false; server.setText(defaultServer.removePrefix("https://")) }
+            prefs.server = ""
             shownStep = -1
             refresh()
         }
@@ -167,19 +149,12 @@ class MainActivity : Activity() {
     }
 
     private fun showPair() {
-        val hasDefault = defaultServer.isNotEmpty() && !customServer && (prefs.server.isEmpty() || prefs.server == defaultServer)
         pairStep.visibility = if (skipSetup) View.GONE else View.VISIBLE
-        intro.setText(if (hasDefault) R.string.intro_default else R.string.intro)
-        serverLabel.visibility = if (hasDefault) View.GONE else View.VISIBLE
-        server.visibility = if (hasDefault) View.GONE else View.VISIBLE
-        otherServer.visibility = if (hasDefault) View.VISIBLE else View.GONE
-        if (hasDefault) server.setText(defaultServer.removePrefix("https://"))
         code.requestFocus()
     }
 
     private fun refreshStatus() {
         val s = AgentService.status
-        serverLine.text = prefs.server.removePrefix("https://")
         connLine.text = when (s.server) {
             "ok" -> "● Connectée à ATV Manager"
             "connexion" -> "○ Connexion en cours…"
@@ -199,30 +174,24 @@ class MainActivity : Activity() {
         }
     }
 
+    // Le serveur est trouvé automatiquement : celui qui a généré le code (voir ServerFinder)
     private fun pair() {
-        val url = Prefs.normalizeServer(server.text.toString())
         val c = code.text.toString().filter { it.isDigit() }
-        if (url.isEmpty()) { showError("Entre l'adresse d'ATV Manager."); return }
         if (c.length != 6) { showError("Entre le code à 6 chiffres affiché dans ATV Manager."); return }
         pairButton.isEnabled = false
-        pairButton.text = "Association…"
+        pairButton.setText(R.string.pairing)
         error.visibility = View.GONE
         thread {
             val result = try {
-                val client = OkHttpClient.Builder().connectTimeout(15, TimeUnit.SECONDS).readTimeout(20, TimeUnit.SECONDS).build()
-                val body = JSONObject().put("code", c).put("name", "${Build.MANUFACTURER} ${Build.MODEL}").toString()
-                    .toRequestBody("application/json".toMediaType())
-                client.newCall(Request.Builder().url("$url/api/agent/pair").post(body).build()).execute().use { res ->
-                    val json = try { JSONObject(res.body?.string() ?: "{}") } catch (_: Exception) { JSONObject() }
-                    if (res.isSuccessful) {
-                        prefs.server = url
-                        prefs.agentId = json.getString("agentId")
-                        prefs.token = json.getString("token")
-                        null
-                    } else json.optString("error", "Erreur ${res.code}")
-                }
+                val p = ServerFinder.pair(c, "${Build.MANUFACTURER} ${Build.MODEL}", defaultServer)
+                prefs.server = p.server
+                prefs.agentId = p.agentId
+                prefs.token = p.token
+                null
+            } catch (e: ServerFinder.PairError) {
+                e.message
             } catch (e: Exception) {
-                "Impossible de joindre $url. Vérifie la connexion internet de la TV."
+                "ATV Manager est injoignable. Vérifie la connexion internet de la TV, puis réessaie."
             }
             main.post {
                 pairButton.isEnabled = true

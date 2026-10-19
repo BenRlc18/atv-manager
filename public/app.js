@@ -994,7 +994,7 @@ async function viewAddRemote(rid) {
         <li><div><h3>Ouvre ATVM Connect et suis ses instructions</h3>
           <p>L'appli vérifie si le <b>mode développeur</b> et le <b>débogage</b> sont actifs. Sinon, elle ouvre directement le bon écran des paramètres et explique quoi faire : 7 appuis sur « Build », puis activer « Débogage USB » et « Débogage réseau ». Plus besoin de chercher dans les menus.</p></div></li>
         <li><div><h3>Entre le code dans l'appli</h3>
-          <p>À la dernière étape, ATVM Connect demande ce code. Si elle demande aussi une adresse, entre <span class="mono">${esc(location.origin)}</span>.</p>
+          <p>À la dernière étape, ATVM Connect demande ce code : elle se relie toute seule à ce serveur, aucune adresse à taper.</p>
           <div id="pair-box"><button class="btn primary" id="pair-gen">Générer un code</button></div></div></li>
         <li><div><h3>Autorise le débogage</h3><p>La TV affiche « Autoriser le débogage ? » : coche <b>Toujours autoriser</b> et valide. La TV apparaît alors automatiquement ici et dans <a href="#/">${isAdmin() ? 'Appareils' : 'Mes TV'}</a>.</p></div></li>
       </ol>

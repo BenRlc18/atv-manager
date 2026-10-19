@@ -1,15 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">ATVM Connect</string>
-    <string name="intro">Relie cette TV à ATV Manager pour l\'optimiser à distance. Dans ATV Manager, ouvre « Ajouter ma TV » et génère un code.</string>
-    <string name="server_label">Adresse d\'ATV Manager</string>
-    <string name="server_hint">atvm.exemple.fr</string>
+    <string name="intro">Dans ATV Manager, ouvre « Ajouter ma TV » et génère un code, puis entre-le ici. ATVM Connect se relie tout seul au bon serveur.</string>
     <string name="code_label">Code à 6 chiffres</string>
     <string name="code_hint">000000</string>
     <string name="pair">Associer cette TV</string>
+    <string name="pairing">Recherche d\'ATV Manager…</string>
     <string name="unpair">Dissocier cette TV</string>
-    <string name="intro_default">Relie cette TV à ATV Manager pour l\'optimiser à distance. Entre le code à 6 chiffres affiché dans ATV Manager (« Ajouter ma TV »).</string>
-    <string name="other_server">Utiliser un autre serveur</string>
     <string name="setup_skip">C\'est déjà fait, continuer</string>
     <string name="dev_step">Étape 1 sur 3</string>
     <string name="dev_title">Active le mode développeur</string>

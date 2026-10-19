@@ -36,7 +36,7 @@ Pour une TV qui n'est pas sur le même réseau que le serveur (par exemple chez 
 3. Dans ATV Manager, ouvre « Ajouter à distance » et génère un code à 6 chiffres, puis entre-le dans ATVM Connect.
 4. Accepte « Autoriser le débogage ? » sur la TV.
 
-Si la variable de dépôt `ATVM_DEFAULT_SERVER` est définie au moment de la compilation, l'APK propose ce serveur par défaut : il n'y a alors que le code à taper.
+Aucune adresse n'est à taper : c'est le serveur qui a généré le code qui l'accepte. L'appli essaie d'abord le serveur fixé à la compilation (variable de dépôt `ATVM_DEFAULT_SERVER`, pour les TV à distance), puis cherche ATV Manager sur le réseau local (port 8420).
 
 La TV apparaît dans la liste de la personne qui a généré le code. ATVM Connect exécute uniquement les actions lancées depuis ATV Manager, via l'ADB local de la TV (`127.0.0.1:5555`). On peut la retirer à tout moment depuis la fiche de la TV.
 
