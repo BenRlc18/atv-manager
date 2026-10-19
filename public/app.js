@@ -177,6 +177,7 @@ const routes = [
   [/^\/?$/, viewDevices, 'devices'],
   [/^\/guide\/?$/, viewGuide, 'guide'],
   [/^\/settings\/?$/, viewSettings, 'settings'],
+  [/^\/add\/?$/, viewAddRemote, 'devices'],
   [/^\/tv\/([^/]+)\/level\/([123])\/?$/, viewOptimize, 'devices'],
   [/^\/tv\/([^/]+)\/?$/, viewDevice, 'devices'],
 ];
@@ -359,7 +360,10 @@ function drawDevices() {
         <h1>Appareils</h1>
         <p class="t2 sm">${S.devices.length ? plural(S.devices.length, 'TV enregistrée') : 'Aucune TV enregistrée'} · réseau local${ts ? ' et Tailscale' : ''}</p>
       </div>
-      <button class="btn primary" id="scan" ${S.scanning ? 'disabled' : ''}>${S.scanning ? '<span class="spin"></span>Recherche en cours…' : `${ic('search')}Rechercher les TV`}</button>
+      <div class="form-row" style="gap:8px">
+        <a class="btn" href="#/add">${ic('link')}Ajouter à distance</a>
+        <button class="btn primary" id="scan" ${S.scanning ? 'disabled' : ''}>${S.scanning ? '<span class="spin"></span>Recherche en cours…' : `${ic('search')}Rechercher les TV`}</button>
+      </div>
     </div>
     ${info && info.tailscale && info.tailscale.enabled && !info.tailscale.ok ? `<div class="note attn">${ic('info')}<div>${esc(info.tailscale.message)}</div></div>` : ''}
     ${rows.length ? `<div class="panel"><ul class="list">${rows.join('')}</ul></div>` : emptyPanel()}
@@ -411,12 +415,13 @@ function drawDevices() {
 // Vue d'un invité : uniquement les TV que l'administrateur lui a partagées
 function drawSharedDevices() {
   $app.innerHTML = `
-    <div class="page-head"><div class="lead"><h1>Mes TV</h1><p class="t2 sm">${S.devices.length ? plural(S.devices.length, 'TV partagée') + ' avec toi' : 'Aucune TV partagée pour le moment'}</p></div></div>
+    <div class="page-head"><div class="lead"><h1>Mes TV</h1><p class="t2 sm">${S.devices.length ? plural(S.devices.length, 'TV') : 'Aucune TV pour le moment'}</p></div>
+      <a class="btn primary" href="#/add">${ic('plus')}Ajouter ma TV</a></div>
     ${S.devices.length ? `<div class="panel"><ul class="list">${S.devices.map(deviceRow).join('')}</ul></div>` : `
       <div class="panel empty">
-        <h2>Aucune TV partagée avec toi</h2>
-        <p>L'administrateur doit d'abord ajouter ta TV puis te la partager. Suis le guide de connexion pour activer le débogage sur ta TV, puis préviens-le.</p>
-        <div class="form-row" style="justify-content:center"><a class="btn primary" href="#/guide">Voir le guide de connexion</a></div>
+        <h2>Ajoute ta TV</h2>
+        <p>Installe l'appli ATVM Connect sur ta TV : elle se relie à ce site, depuis chez toi, sans rien configurer sur ta box. Compte 5 minutes.</p>
+        <div class="form-row" style="justify-content:center"><a class="btn primary" href="#/add">Ajouter ma TV</a></div>
       </div>
       ${compatPanel()}`}`;
 }
@@ -452,18 +457,21 @@ async function doScan() {
   }
 }
 
+const viaAgent = (d) => d.transport === 'agent';
+const agentState = (d) => (!d.agent || !d.agent.online ? ['', 'hors ligne'] : d.agent.adb === 'ok' ? ['ok', 'en ligne'] : ['note', 'débogage à autoriser']);
+
 function deviceRow(d) {
-  const fresh = Date.now() - (d.lastSeen || 0) < 6e5;
+  const fresh = viaAgent(d) ? d.agent && d.agent.online && d.agent.adb === 'ok' : Date.now() - (d.lastSeen || 0) < 6e5;
   const model = [d.brand, d.model].filter(Boolean).join(' ');
   return `
     <li><a class="device-row" href="#/tv/${encodeURIComponent(d.id)}">
       <div class="ico">${ic('tv')}</div>
       <div style="min-width:0">
         <div class="name">${esc(displayName(d))}</div>
-        <div class="meta">${d.label || d.deviceName ? `<span>${esc(model)}</span>` : ''}${d.android ? `<span>Android ${esc(d.android)}</span>` : ''}<span class="mono">${esc(d.host)}</span>${d.remote ? '<span>via Tailscale</span>' : ''}</div>
+        <div class="meta">${d.label || d.deviceName ? `<span>${esc(model)}</span>` : ''}${d.android ? `<span>Android ${esc(d.android)}</span>` : ''}${viaAgent(d) ? '<span>via ATVM Connect</span>' : `<span class="mono">${esc(d.host)}</span>${d.remote ? '<span>via Tailscale</span>' : ''}`}</div>
       </div>
       <div class="side">
-        <span class="status"><span class="dot ${fresh ? 'ok' : ''}"></span>${esc(ago(d.lastSeen))}</span>
+        <span class="status"><span class="dot ${viaAgent(d) ? agentState(d)[0] : fresh ? 'ok' : ''}"></span>${esc(viaAgent(d) ? agentState(d)[1] : ago(d.lastSeen))}</span>
         ${d.remote && !d.tsTagged ? '<span class="tag">Sans étiquette Tailscale</span>' : ''}
       </div>
       <span class="chev">${ic('chevron')}</span>
@@ -534,7 +542,7 @@ async function viewDevice(rid, id) {
     <div class="page-head">
       <div class="lead">
         <h1>${esc(displayName(d))}</h1>
-        <p class="t2 sm">${esc([d.brand, d.model].filter(Boolean).join(' '))}${d.android ? ` · Android ${esc(d.android)}` : ''} · <span class="mono">${esc(d.host)}</span>${d.remote ? ' · via Tailscale' : ''}</p>
+        <p class="t2 sm">${esc([d.brand, d.model].filter(Boolean).join(' '))}${d.android ? ` · Android ${esc(d.android)}` : ''} · ${viaAgent(d) ? 'via ATVM Connect' : `<span class="mono">${esc(d.host)}</span>${d.remote ? ' · via Tailscale' : ''}`}</p>
       </div>
       ${isAdmin() ? '<button class="btn" id="rename">Renommer</button>' : ''}
     </div>
@@ -579,16 +587,17 @@ async function viewDevice(rid, id) {
 
     <section class="section" id="history"></section>
 
-    ${isAdmin() ? `
-    <section class="section" id="share"></section>
+    ${isAdmin() ? '<section class="section" id="share"></section>' : ''}
+    ${isAdmin() || viaAgent(d) ? `
     <div class="panel">
       <div class="setting">
-        <div><div class="lbl">Oublier cette TV</div><p class="desc">Elle disparaît de la liste. Ses réglages ne changent pas et son historique est conservé.</p></div>
-        <button class="btn danger sm" id="forget">Oublier</button>
+        <div><div class="lbl">${viaAgent(d) ? 'Retirer cette TV' : 'Oublier cette TV'}</div><p class="desc">${viaAgent(d) ? "ATVM Connect est dissocié : pour la rajouter, il faudra un nouveau code. Les réglages de la TV ne changent pas." : 'Elle disparaît de la liste. Ses réglages ne changent pas et son historique est conservé.'}</p></div>
+        <button class="btn danger sm" id="forget">${viaAgent(d) ? 'Retirer' : 'Oublier'}</button>
       </div>
     </div>` : ''}`;
 
   if (isAdmin()) adminDeviceControls(rid, d);
+  bindForget(d);
   drawHistory(rid, id);
   loadDeviceStats(rid, id);
 }
@@ -605,10 +614,14 @@ function adminDeviceControls(rid, d) {
       render();
     } catch (e) { toast(e.message, 'error'); }
   });
-  $('#forget').addEventListener('click', async () => {
-    if (!(await confirmBox({ title: 'Oublier cette TV ?', html: "<p>Elle réapparaîtra au prochain scan si le débogage est toujours actif.</p>", confirm: 'Oublier', danger: true }))) return;
+}
+
+function bindForget(d) {
+  $('#forget')?.addEventListener('click', async () => {
+    const agent = viaAgent(d);
+    if (!(await confirmBox({ title: agent ? 'Retirer cette TV ?' : 'Oublier cette TV ?', html: agent ? "<p>L'appli ATVM Connect de la TV sera dissociée.</p>" : '<p>Elle réapparaîtra au prochain scan si le débogage est toujours actif.</p>', confirm: agent ? 'Retirer' : 'Oublier', danger: true }))) return;
     try {
-      await api(`/api/devices/${encodeURIComponent(id)}/forget`, { method: 'POST' });
+      await api(`/api/devices/${encodeURIComponent(d.id)}/forget`, { method: 'POST' });
       await loadState();
       location.hash = '#/';
     } catch (e) { toast(e.message, 'error'); }
@@ -948,6 +961,67 @@ async function viewOptimize(rid, id, levelStr) {
   };
 
   await load();
+}
+
+// =====================================================================
+// Ajouter une TV à distance avec l'appli ATVM Connect
+// =====================================================================
+let pairTimer = null;
+async function viewAddRemote(rid) {
+  clearInterval(pairTimer);
+  const known = new Set(S.devices.map((d) => d.id));
+  const apk = `${location.host}/connect.apk`;
+  $app.innerHTML = `
+    ${crumbs([['Appareils', '#/'], ['Ajouter à distance']])}
+    <div class="page-head"><div class="lead"><h1>Ajouter une TV à distance</h1><p class="t2 sm">Pour une TV qui n'est pas sur le même réseau que le serveur, par exemple chez un proche. L'appli <b>ATVM Connect</b> relie la TV à ce site, sans rien configurer sur la box.</p></div></div>
+    <div class="panel">
+      <ol class="steps">
+        <li><div><h3>Active le débogage sur la TV</h3><p>Suis le <a href="#/guide">guide de connexion</a> (étapes 1 et 2). Active bien le <b>débogage réseau</b> ou le <b>débogage ADB via le réseau</b> s'il existe.</p></div></li>
+        <li><div><h3>Installe ATVM Connect</h3>
+          <p>Sur la TV, installe l'appli <b>Downloader</b> depuis le Play Store, ouvre-la et tape cette adresse :</p>
+          <div class="copy-line"><span class="mono">${esc(apk)}</span><button class="btn sm" data-copyline="${esc(`https://${apk}`)}">${ic('copy')}Copier</button></div>
+          <p>Lance le téléchargement puis <b>Installer</b>. Si Android le demande, autorise Downloader à installer des applis.</p></div></li>
+        <li><div><h3>Associe la TV</h3>
+          <p>Ouvre ATVM Connect sur la TV et entre l'adresse <span class="mono">${esc(location.origin)}</span> puis ce code :</p>
+          <div id="pair-box"><button class="btn primary" id="pair-gen">Générer un code</button></div></div></li>
+        <li><div><h3>Autorise le débogage</h3><p>La TV affiche « Autoriser le débogage ? » : coche <b>Toujours autoriser</b> et valide. La TV apparaît alors automatiquement ici et dans <a href="#/">${isAdmin() ? 'Appareils' : 'Mes TV'}</a>.</p></div></li>
+      </ol>
+    </div>
+    <div class="note">${ic('shield')}<div>ATVM Connect ne fait rien tout seul : il exécute uniquement les optimisations que tu lances ici, et tu peux le retirer à tout moment depuis la fiche de la TV.</div></div>`;
+
+  $$('[data-copyline]').forEach((b) => b.addEventListener('click', () => copyText(b.dataset.copyline, 'Adresse copiée.')));
+  $('#pair-gen').addEventListener('click', async (e) => {
+    busy(e.currentTarget, true, 'Création…');
+    try {
+      const r = await api('/api/agent/pair-code', { method: 'POST' });
+      if (rid !== renderId) return;
+      const end = Date.now() + r.expiresIn * 1000;
+      const box = $('#pair-box');
+      const tick = async () => {
+        if (rid !== renderId) { clearInterval(pairTimer); return; }
+        const left = Math.max(0, Math.round((end - Date.now()) / 1000));
+        const t = box.querySelector('.pair-left');
+        if (t) t.textContent = left ? `Valable encore ${Math.floor(left / 60)} min ${String(left % 60).padStart(2, '0')} s` : 'Code expiré';
+        if (!left) { clearInterval(pairTimer); box.innerHTML = `<button class="btn primary" id="pair-gen2">Générer un nouveau code</button>`; $('#pair-gen2').addEventListener('click', () => viewAddRemote(rid)); return; }
+        // Toutes les 3 s : la TV est-elle arrivée ?
+        if (left % 3 === 0) {
+          try {
+            const st = await api('/api/state');
+            const fresh = st.devices.find((d) => !known.has(d.id) && d.transport === 'agent');
+            if (fresh && rid === renderId) {
+              clearInterval(pairTimer);
+              S.devices = st.devices;
+              toast(`${displayName(fresh)} est associée.`);
+              location.hash = `#/tv/${encodeURIComponent(fresh.id)}`;
+            }
+          } catch { /* on réessaie au prochain tour */ }
+        }
+      };
+      box.innerHTML = `<div class="pair-code mono" aria-label="Code d'association">${esc(r.code.replace(/(\d{3})(\d{3})/, '$1 $2'))}</div><p class="sm t3 pair-left"></p><p class="sm t2"><span class="spin" style="width:12px;height:12px;display:inline-block;vertical-align:-1px"></span> En attente de la TV…</p>`;
+      tick();
+      pairTimer = setInterval(tick, 1000);
+    } catch (err) { toast(err.message, 'error'); busy(e.currentTarget, false); }
+  });
 }
 
 // =====================================================================

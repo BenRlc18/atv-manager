@@ -16,7 +16,11 @@ function adb(args, { timeout = 15000 } = {}) {
   });
 }
 
-const shell = (target, cmd, opts) => adb(['-s', target, 'shell', cmd], opts);
+// Une cible "agent:<id>" passe par l'appli ATVM Connect installée sur la TV
+function shell(target, cmd, opts = {}) {
+  if (target.startsWith('agent:')) return require('./agents').call(target.slice(6), cmd, opts.timeout || 15000);
+  return adb(['-s', target, 'shell', cmd], opts);
+}
 
 // État ADB d'une cible : device | unauthorized | offline | absent
 async function state(target) {

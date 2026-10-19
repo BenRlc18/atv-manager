@@ -370,6 +370,11 @@ body.auth-mode main { padding-bottom: 48px; }
 .invite-row:last-child { border-bottom: 0; }
 .invite-link { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* ---------- ATVM Connect */
+.copy-line { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 8px 0; padding: 8px 8px 8px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--sunken); }
+.copy-line .mono { flex: 1; font-size: 14px; color: var(--text); word-break: break-all; }
+.pair-code { font-size: 34px; font-weight: 600; letter-spacing: .12em; color: var(--text); margin: 6px 0 2px; font-variant-numeric: tabular-nums; }
+
 /* ---------- Double authentification */
 .code-input { letter-spacing: .25em; font-size: 18px; text-align: center; }
 .tfa-steps { padding-left: 18px; display: flex; flex-direction: column; gap: 16px; color: var(--text-2); }

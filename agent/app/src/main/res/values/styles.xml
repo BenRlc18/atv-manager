@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg">#FF141413</color>
+    <color name="panel">#FF222220</color>
+    <color name="line">#FF3D3B37</color>
+    <color name="text">#FFEDEBE5</color>
+    <color name="text2">#FFAEABA3</color>
+    <color name="accent">#FF7C9BFF</color>
+    <color name="accent_text">#FF0D1430</color>
+    <color name="bad">#FFF07A6E</color>
+
+    <style name="Body">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">6dp</item>
+        <item name="android:textColor">@color/text2</item>
+        <item name="android:textSize">17sp</item>
+        <item name="android:lineSpacingMultiplier">1.2</item>
+    </style>
+
+    <style name="Label">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">22dp</item>
+        <item name="android:textColor">@color/text2</item>
+        <item name="android:textSize">15sp</item>
+    </style>
+
+    <style name="Field">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">56dp</item>
+        <item name="android:layout_marginTop">8dp</item>
+        <item name="android:background">@drawable/field</item>
+        <item name="android:paddingHorizontal">16dp</item>
+        <item name="android:textColor">@color/text</item>
+        <item name="android:textColorHint">@color/line</item>
+        <item name="android:textSize">20sp</item>
+        <item name="android:singleLine">true</item>
+    </style>
+
+    <style name="Primary">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">58dp</item>
+        <item name="android:layout_marginTop">26dp</item>
+        <item name="android:background">@drawable/button_primary</item>
+        <item name="android:textColor">@color/accent_text</item>
+        <item name="android:textSize">18sp</item>
+        <item name="android:textAllCaps">false</item>
+    </style>
+
+    <style name="Secondary" parent="Primary">
+        <item name="android:background">@drawable/button_secondary</item>
+        <item name="android:textColor">@color/text</item>
+    </style>
+</resources>

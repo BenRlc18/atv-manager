@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ATVM Connect</string>
+    <string name="intro">Relie cette TV à ATV Manager pour l\'optimiser à distance. Dans ATV Manager, ouvre « Ajouter ma TV » et génère un code.</string>
+    <string name="server_label">Adresse d\'ATV Manager</string>
+    <string name="server_hint">atvm.exemple.fr</string>
+    <string name="code_label">Code à 6 chiffres</string>
+    <string name="code_hint">000000</string>
+    <string name="pair">Associer cette TV</string>
+    <string name="unpair">Dissocier cette TV</string>
+</resources>

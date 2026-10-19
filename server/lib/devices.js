@@ -166,10 +166,39 @@ async function scan() {
   return { subnets, found, tailscale };
 }
 
+// --- ATVM Connect : quand l'appli de la TV est connectée et autorisée, on enregistre la TV
+const AG = require('./agents');
+AG.setReadyHandler(async (agent) => {
+  if (!agent) return;
+  const target = `agent:${agent.id}`;
+  const info = await identify(target);
+  if (!info) return;
+  const all = store.devices();
+  const prev = all[info.id] || {};
+  const users = new Set(prev.users || []);
+  if (agent.userId) users.add(agent.userId);
+  store.upsertDevice({ ...info, transport: 'agent', agentId: agent.id, host: 'ATVM Connect', port: 0, remote: true, users: [...users], lastSeen: Date.now() });
+  const agents = AG.agents();
+  if (agents[agent.id]) { agents[agent.id].deviceId = info.id; AG.saveAgents(agents); }
+});
+
+async function reachAgent(dev) {
+  const st = AG.status(dev.agentId);
+  if (!st.online) return { error: "La TV est hors ligne. Vérifie qu'elle est allumée et que l'appli ATVM Connect est ouverte au moins une fois.", code: 409, state: 'offline' };
+  if (st.adb === 'unauthorized') return { error: "Sur la TV, accepte la fenêtre « Autoriser le débogage ? » (coche « Toujours autoriser »).", code: 409, state: 'unauthorized' };
+  if (st.adb !== 'ok') return { error: st.message || "ATVM Connect n'arrive pas à utiliser le débogage de la TV. Vérifie que le débogage réseau est activé (onglet Connexion).", code: 409, state: 'adb' };
+  const target = `agent:${dev.agentId}`;
+  const info = await identify(target);
+  if (!info || info.id !== dev.id) return { error: 'La TV ne répond pas correctement. Réessaie dans un instant.', code: 409, state: 'offline' };
+  store.upsertDevice({ ...info, transport: 'agent', agentId: dev.agentId, host: 'ATVM Connect', lastSeen: Date.now() });
+  return { dev: store.devices()[dev.id], target };
+}
+
 // Retrouve la cible d'un appareil enregistré, et le reconnecte
 async function reach(id) {
   const dev = store.devices()[id];
   if (!dev) return { error: 'Appareil inconnu.', code: 404 };
+  if (dev.transport === 'agent') return reachAgent(dev);
   const target = `${dev.host}:${dev.port || ADB_PORT}`;
   const st = await A.connect(target);
   if (st === 'unauthorized') return { error: 'La TV attend ton autorisation : accepte la fenêtre « Autoriser le débogage ? » sur l\'écran (coche « Toujours autoriser »).', code: 409, state: st };

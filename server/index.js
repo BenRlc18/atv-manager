@@ -8,6 +8,10 @@ const store = require('./lib/store');
 const D = require('./lib/devices');
 const O = require('./lib/optimizer');
 const auth = require('./lib/auth');
+const AG = require('./lib/agents');
+
+// Lien de téléchargement de l'appli ATVM Connect (redirection depuis /connect.apk, facile à taper dans Downloader)
+const AGENT_APK_URL = process.env.AGENT_APK_URL || 'https://github.com/BenRlc18/atv-manager/releases/latest/download/atvm-connect.apk';
 
 const PORT = Number(process.env.PORT) || 8420;
 const PUBLIC = path.join(__dirname, '..', 'public');
@@ -60,6 +64,8 @@ const clientIp = (req) => String(req.headers['x-real-ip'] || (req.headers['x-for
 const publicDevice = (d, withUsers) => ({
   id: d.id, label: d.label || '', brand: d.brand, model: d.model, deviceName: d.deviceName, android: d.android,
   host: d.host, port: d.port, remote: !!d.remote, tsName: d.tsName || '', tsTagged: !!d.tsTagged, lastSeen: d.lastSeen, isTv: d.isTv,
+  transport: d.transport || 'adb',
+  ...(d.transport === 'agent' ? { agent: AG.status(d.agentId) } : {}),
   ...(withUsers ? { users: d.users || [] } : {}),
 });
 
@@ -185,15 +191,22 @@ route('POST', '/api/devices/:id/share', 'admin', async (ctx, p) => {
   return { device: publicDevice(dev, true) };
 });
 
-route('POST', '/api/devices/:id/forget', 'admin', async (ctx, p) => {
+// Retirer une TV : l'administrateur, ou le proche pour une TV associée avec ATVM Connect
+route('POST', '/api/devices/:id/forget', 'user', async (ctx, p) => {
   const all = store.devices();
   const dev = all[decodeURIComponent(p.id)];
-  if (!dev) throw fail('Appareil inconnu.', 404);
-  await A.disconnect(`${dev.host}:${dev.port || D.ADB_PORT}`);
+  if (!dev || !canSee(ctx.user, dev)) throw fail('Appareil inconnu.', 404);
+  if (!isAdmin(ctx.user) && dev.transport !== 'agent') throw fail("Réservé à l'administrateur.", 403);
+  if (dev.transport === 'agent') AG.revoke(dev.agentId);
+  else await A.disconnect(`${dev.host}:${dev.port || D.ADB_PORT}`);
   delete all[dev.id];
   store.saveDevices(all);
   return { ok: true };
 });
+
+// ---------- ATVM Connect (appli sur la TV)
+route('POST', '/api/agent/pair-code', 'user', async (ctx) => AG.createPairCode(ctx.user));
+route('POST', '/api/agent/pair', 'public', async (ctx) => AG.pair(ctx.body.code, ctx.body.name, clientIp(ctx.req)));
 
 // ---------- Optimisation (toute personne ayant accès à la TV)
 route('GET', '/api/devices/:id/plan', 'user', async (ctx, p) => {
@@ -241,7 +254,18 @@ route('POST', '/api/settings', 'admin', async (ctx) => {
 route('GET', '/api/admin/users', 'admin', async () => ({ users: auth.listUsers(), invites: auth.listInvites() }));
 route('POST', '/api/admin/invites', 'admin', async (ctx) => ({ invite: auth.createInvite(ctx.user, ctx.body.note) }));
 route('POST', '/api/admin/invites/:code/revoke', 'admin', async (ctx, p) => { auth.revokeInvite(decodeURIComponent(p.code)); return { ok: true }; });
-route('POST', '/api/admin/users/:id/delete', 'admin', async (ctx, p) => { auth.deleteUser(decodeURIComponent(p.id), ctx.user); return { ok: true }; });
+route('POST', '/api/admin/users/:id/delete', 'admin', async (ctx, p) => {
+  const id = decodeURIComponent(p.id);
+  auth.deleteUser(id, ctx.user);
+  // Les TV associées par ce proche avec ATVM Connect sont dissociées
+  const devs = store.devices();
+  for (const a of Object.values(AG.agents()).filter((x) => x.userId === id)) {
+    AG.revoke(a.id);
+    if (a.deviceId && devs[a.deviceId] && devs[a.deviceId].agentId === a.id) delete devs[a.deviceId];
+  }
+  store.saveDevices(devs);
+  return { ok: true };
+});
 route('POST', '/api/admin/users/:id/reset-2fa', 'admin', async (ctx, p) => { auth.twoFactorReset(decodeURIComponent(p.id)); return { ok: true }; });
 
 // ---------- Serveur
@@ -252,6 +276,7 @@ const server = http.createServer(async (req, res) => {
 
   let url;
   try { url = new URL(req.url, 'http://x'); } catch { return send(res, 400, 'Requête invalide'); }
+  if (url.pathname === '/connect.apk') return send(res, 302, 'Redirection', { Location: AGENT_APK_URL });
   if (!url.pathname.startsWith('/api/')) return serveStatic(req, res);
 
   const r = routes.find((x) => x.method === req.method && x.re.test(url.pathname));
@@ -276,6 +301,12 @@ const server = http.createServer(async (req, res) => {
     if (code === 500) console.error(e);
     send(res, code, { error: code === 500 ? 'Erreur interne.' : e.message, state: e.state, refused: e.refused });
   }
+});
+
+// Tunnel WebSocket des TV équipées d'ATVM Connect
+server.on('upgrade', (req, socket) => {
+  if (req.url.split('?')[0] === '/api/agent/ws') AG.handleUpgrade(req, socket);
+  else socket.destroy();
 });
 
 server.requestTimeout = 0; // le scan et l'optimisation peuvent durer plus d'une minute

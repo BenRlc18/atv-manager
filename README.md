@@ -26,6 +26,20 @@ ATV Manager parle aux TV avec **ADB**, sur le réseau local. Le serveur doit don
 
 Pour gérer la TV d'un proche à distance, sa TV doit rejoindre ton réseau **Tailscale** (option avancée, voir les réglages de l'appli).
 
+
+## Gérer une TV à distance avec ATVM Connect
+
+Pour une TV qui n'est pas sur le même réseau que le serveur (par exemple chez un proche), l'appli **ATVM Connect** s'installe sur la TV et ouvre une connexion **sortante** vers ATV Manager. Il n'y a aucun port à ouvrir sur la box et pas besoin de Tailscale.
+
+1. Sur la TV, active le débogage (USB et réseau) depuis les options pour les développeurs.
+2. Installe ATVM Connect avec l'appli **Downloader** : tape l'adresse de ton ATV Manager suivie de `/connect.apk` (par exemple `atvm.exemple.fr/connect.apk`).
+3. Dans ATV Manager, ouvre « Ajouter à distance » et génère un code à 6 chiffres.
+4. Dans ATVM Connect, entre l'adresse d'ATV Manager et le code, puis accepte « Autoriser le débogage ? » sur la TV.
+
+La TV apparaît dans la liste de la personne qui a généré le code. ATVM Connect exécute uniquement les actions lancées depuis ATV Manager, via l'ADB local de la TV (`127.0.0.1:5555`). On peut la retirer à tout moment depuis la fiche de la TV.
+
+Le code source de l'appli est dans `agent/` (Kotlin). L'APK est compilée par GitHub Actions : un tag `connect-vX.Y.Z` publie une release. Pour signer tes propres versions, ajoute les secrets `ATVM_KEYSTORE_B64` (PKCS12 en base64, alias `atvm`) et `ATVM_KEYSTORE_PASSWORD`.
+
 ## Lancer avec Docker
 
 ```bash
