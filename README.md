@@ -66,6 +66,7 @@ Sur iPhone et Android, « Ajouter à l'écran d'accueil » l'installe comme une 
 | `PORT` | Port de l'interface | `8420` |
 | `SCAN_SUBNETS` | Réseaux à scanner, par exemple `192.168.1.0/24` | détection automatique |
 | `ANDROID_ADB_SERVER_PORT` | Port du serveur ADB interne (5038 dans l'image Docker, pour ne pas entrer en conflit avec un autre adb) | `5037` |
+| `AGENT_APK_URL` | Lien de l'APK ATVM Connect si aucune APK n'est posée dans `data/connect.apk` | release GitHub publique |
 | `DOWNLOADER_CODE` | Code court Downloader (go.aftvnews.com) affiché pour installer ATVM Connect | aucun |
 | `TAILSCALE_SOCKET` | Socket du démon Tailscale (option Tailscale) | `/var/run/tailscale/tailscaled.sock` |
 
@@ -94,3 +95,7 @@ Les applis proposées au niveau 2 sont dans `server/catalog.json`, avec un nivea
 ## Licence
 
 MIT
+
+## APK personnalisée pour ton serveur
+
+L'APK publique est **générique** : elle trouve ATV Manager sur le réseau local, ou demande l'adresse du serveur. Pour que tes proches n'aient **que le code à taper**, compile ta propre APK avec ton serveur intégré (variable de dépôt `ATVM_DEFAULT_SERVER`, par exemple dans un dépôt privé) et dépose-la dans `data/connect.apk` : ATV Manager la sert alors sur `/connect.apk`. Signe-la avec la même clé que l'APK publique pour pouvoir passer de l'une à l'autre sans désinstaller.

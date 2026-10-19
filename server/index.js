@@ -308,7 +308,20 @@ const server = http.createServer(async (req, res) => {
 
   let url;
   try { url = new URL(req.url, 'http://x'); } catch { return send(res, 400, 'Requête invalide'); }
-  if (url.pathname === '/connect.apk') return send(res, 302, 'Redirection', { Location: AGENT_APK_URL });
+  if (url.pathname === '/connect.apk') {
+    // Une APK personnalisée (avec ce serveur intégré) posée dans le dossier de données est servie en priorité
+    const local = path.join(store.DATA_DIR, 'connect.apk');
+    return fs.stat(local, (err, st) => {
+      if (err || !st.isFile()) return send(res, 302, 'Redirection', { Location: AGENT_APK_URL });
+      res.writeHead(200, {
+        'Content-Type': 'application/vnd.android.package-archive',
+        'Content-Length': st.size,
+        'Content-Disposition': 'attachment; filename="atvm-connect.apk"',
+        'Cache-Control': 'no-cache',
+      });
+      fs.createReadStream(local).pipe(res);
+    });
+  }
   if (!url.pathname.startsWith('/api/')) return serveStatic(req, res);
 
   const r = routes.find((x) => x.method === req.method && x.re.test(url.pathname));

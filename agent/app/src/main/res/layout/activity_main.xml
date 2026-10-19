@@ -108,6 +108,22 @@
                     android:id="@+id/pair"
                     style="@style/Primary"
                     android:text="@string/pair" />
+
+                <!-- Version générique uniquement : serveur hors du réseau local -->
+                <Button
+                    android:id="@+id/remote_toggle"
+                    style="@style/Secondary"
+                    android:layout_marginTop="14dp"
+                    android:text="@string/remote_toggle"
+                    android:visibility="gone" />
+
+                <EditText
+                    android:id="@+id/remote_server"
+                    style="@style/Field"
+                    android:hint="@string/remote_hint"
+                    android:imeOptions="actionDone"
+                    android:inputType="textUri"
+                    android:visibility="gone" />
             </LinearLayout>
 
             <!-- État -->

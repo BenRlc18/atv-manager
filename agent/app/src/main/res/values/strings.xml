@@ -17,4 +17,6 @@
     <string name="adb_text">Le bouton ci-dessous ouvre les « Options pour les développeurs ». Active « Débogage USB », et aussi « Débogage réseau » ou « Débogage ADB via le réseau » s\'il existe. Reviens ensuite ici avec la touche Retour.</string>
     <string name="adb_open">Ouvrir les options pour les développeurs</string>
     <string name="pair_step">Étape 3 sur 3</string>
+    <string name="remote_toggle">Mon serveur ATV Manager est ailleurs</string>
+    <string name="remote_hint">Adresse du serveur, ex. atvm.exemple.fr</string>
 </resources>

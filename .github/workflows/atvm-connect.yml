@@ -44,7 +44,12 @@ jobs:
           V="${GITHUB_REF_NAME#connect-v}"
           [ "$V" = "$GITHUB_REF_NAME" ] && V="0.0.0-dev"
           echo "ATVM_VERSION_NAME=$V" >> "$GITHUB_ENV"
-          echo "ATVM_VERSION_CODE=$((100 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
+          # Numéro de version tiré du nom (0.4.1 -> 401) : identique quel que soit le dépôt qui compile
+          if [[ "$V" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "ATVM_VERSION_CODE=$(( ${BASH_REMATCH[1]} * 10000 + ${BASH_REMATCH[2]} * 100 + ${BASH_REMATCH[3]} ))" >> "$GITHUB_ENV"
+          else
+            echo "ATVM_VERSION_CODE=1" >> "$GITHUB_ENV"
+          fi
 
       - name: Compilation
         env:

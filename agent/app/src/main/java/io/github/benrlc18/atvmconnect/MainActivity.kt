@@ -40,6 +40,8 @@ class MainActivity : Activity() {
     private lateinit var adbLine: TextView
     private lateinit var hint: TextView
     private lateinit var openDev: Button
+    private lateinit var remoteToggle: Button
+    private lateinit var remoteServer: EditText
 
     private var skipSetup = false
     private var shownStep = -1
@@ -67,6 +69,14 @@ class MainActivity : Activity() {
         adbLine = findViewById(R.id.adb_line)
         hint = findViewById(R.id.hint)
         openDev = findViewById(R.id.open_dev)
+        remoteToggle = findViewById(R.id.remote_toggle)
+        remoteServer = findViewById(R.id.remote_server)
+        // Version générique (sans serveur intégré) : adresse saisissable seulement sur demande
+        remoteToggle.setOnClickListener {
+            remoteToggle.visibility = View.GONE
+            remoteServer.visibility = View.VISIBLE
+            remoteServer.requestFocus()
+        }
 
         pairButton.setOnClickListener { pair() }
         code.setOnEditorActionListener { _, actionId, _ -> if (actionId == EditorInfo.IME_ACTION_DONE) { pair(); true } else false }
@@ -150,6 +160,7 @@ class MainActivity : Activity() {
 
     private fun showPair() {
         pairStep.visibility = if (skipSetup) View.GONE else View.VISIBLE
+        if (defaultServer.isEmpty() && remoteServer.visibility != View.VISIBLE) remoteToggle.visibility = View.VISIBLE
         code.requestFocus()
     }
 
@@ -183,7 +194,8 @@ class MainActivity : Activity() {
         error.visibility = View.GONE
         thread {
             val result = try {
-                val p = ServerFinder.pair(c, "${Build.MANUFACTURER} ${Build.MODEL}", defaultServer)
+                val typed = Prefs.normalizeServer(remoteServer.text.toString())
+                val p = ServerFinder.pair(c, "${Build.MANUFACTURER} ${Build.MODEL}", typed.ifEmpty { defaultServer })
                 prefs.server = p.server
                 prefs.agentId = p.agentId
                 prefs.token = p.token
