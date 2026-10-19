@@ -8,7 +8,7 @@ const store = require('./store');
 
 const WS_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 const MAX_FRAME = 32 * 1024 * 1024;
-const PAIR_MINUTES = 10;
+const PAIR_MINUTES = 1;
 
 const err = (message, code = 400) => Object.assign(new Error(message), { code });
 const sha256 = (s) => crypto.createHash('sha256').update(s).digest('hex');

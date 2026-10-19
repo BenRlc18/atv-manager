@@ -1027,7 +1027,7 @@ async function viewAddRemote(rid) {
         if (rid !== renderId) { clearInterval(pairTimer); return; }
         const left = Math.max(0, Math.round((end - Date.now()) / 1000));
         const t = box.querySelector('.pair-left');
-        if (t) t.textContent = left ? `Valable encore ${Math.floor(left / 60)} min ${String(left % 60).padStart(2, '0')} s` : 'Code expiré';
+        if (t) t.textContent = left ? `Valable encore ${left >= 60 ? `${Math.floor(left / 60)} min ${String(left % 60).padStart(2, '0')} s` : `${left} s`}` : 'Code expiré';
         if (!left) { clearInterval(pairTimer); box.innerHTML = `<button class="btn primary" id="pair-gen2">Générer un nouveau code</button>`; $('#pair-gen2').addEventListener('click', () => viewAddRemote(rid)); return; }
         // Toutes les 3 s : la TV est-elle arrivée ?
         if (left % 3 === 0) {
