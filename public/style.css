@@ -355,6 +355,12 @@ body.auth-mode main { padding-bottom: 48px; }
 .auth-submit { height: 42px; margin-top: 4px; }
 .auth-switch { text-align: center; }
 .form-error { color: var(--bad); font-size: 13.5px; }
+.pwd-rules { list-style: none; padding: 0; margin: -6px 0 0; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; font-size: 12.5px; color: var(--text-3); }
+.pwd-rules li { display: flex; align-items: center; gap: 6px; }
+.pwd-rules li svg.i { width: 13px; height: 13px; opacity: .35; }
+.pwd-rules li.ok { color: var(--ok); }
+.pwd-rules li.ok svg.i { opacity: 1; }
+@media (max-width: 420px) { .pwd-rules { grid-template-columns: 1fr; } }
 
 /* ---------- Partage et invitations */
 .share-list { display: flex; flex-direction: column; }

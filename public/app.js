@@ -218,6 +218,22 @@ window.addEventListener('hashchange', render);
 // =====================================================================
 // Connexion, inscription, premier lancement
 // =====================================================================
+// Règles du mot de passe (vérifiées aussi côté serveur)
+const PWD_RULES = [
+  ['len', '8 caractères minimum', (p) => p.length >= 8],
+  ['letter', '1 lettre', (p) => /[A-Za-z]/.test(p)],
+  ['digit', '1 chiffre', (p) => /\d/.test(p)],
+  ['special', '1 caractère spécial (! ? @ # - …)', (p) => /[^A-Za-z0-9]/.test(p)],
+];
+const PWD_RULES_HTML = `<ul class="pwd-rules" aria-live="polite">${PWD_RULES.map(([k, label]) => `<li data-rule="${k}">${ic('check')}<span>${label}</span></li>`).join('')}</ul>`;
+const pwdValid = (p) => PWD_RULES.every(([, , test]) => test(p));
+// Met à jour la liste des règles sous un champ mot de passe
+function watchPassword(input, list) {
+  if (!input || !list) return;
+  const update = () => PWD_RULES.forEach(([k, , test]) => list.querySelector(`[data-rule="${k}"]`).classList.toggle('ok', test(input.value)));
+  input.addEventListener('input', update);
+  update();
+}
 function showAuth(mode, invite = '', message = '') {
   renderId++;
   document.body.classList.add('auth-mode');
@@ -228,7 +244,7 @@ function showAuth(mode, invite = '', message = '') {
     login: { title: 'Connexion', lead: 'Connecte-toi pour gérer tes TV.', submit: 'Se connecter' },
     register: { title: 'Créer un compte', lead: "Il te faut le code d'invitation envoyé par l'administrateur.", submit: 'Créer mon compte' },
   }[mode];
-  const pwd = (name, label, auto) => `<label class="field">${label}<input class="input lg" type="password" name="${name}" autocomplete="${auto}" minlength="8" required></label>`;
+  const pwd = (name, label, auto) => `<label class="field">${label}<input class="input lg" type="password" name="${name}" autocomplete="${auto}" minlength="8" required></label>${name === 'password' && mode !== 'login' ? PWD_RULES_HTML : ''}`;
   $app.innerHTML = `
     <div class="auth">
       <div class="auth-brand"><img src="/icon.svg" alt="" width="40" height="40"><span>ATV Manager</span></div>
@@ -247,12 +263,13 @@ function showAuth(mode, invite = '', message = '') {
       </div>
       ${mode === 'login' ? `<p class="sm t2 auth-switch">Tu as reçu une invitation ? <a href="#" data-auth="register">Créer un compte</a></p>` : ''}
       ${mode === 'register' ? `<p class="sm t2 auth-switch">Déjà un compte ? <a href="#" data-auth="login">Se connecter</a></p>` : ''}
-      ${mode !== 'login' ? '<p class="sm t3 auth-switch">8 caractères minimum. Identifiant : lettres, chiffres, point ou tiret.</p>' : ''}
+      ${mode !== 'login' ? '<p class="sm t3 auth-switch">Identifiant : 3 à 32 caractères, lettres, chiffres, point ou tiret.</p>' : ''}
     </div>`;
 
   $$('[data-auth]').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); showAuth(a.dataset.auth); }));
   const form = $('#auth-form');
   form.querySelector('input:not([value=""]), input')?.focus();
+  watchPassword(form.querySelector('input[name=password]'), form.querySelector('.pwd-rules'));
   form.addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const f = Object.fromEntries(new FormData(form));
@@ -260,6 +277,7 @@ function showAuth(mode, invite = '', message = '') {
     const showErr = (m) => { errBox.textContent = m; errBox.hidden = false; };
     errBox.hidden = true;
     if (!f.username || !f.password) return showErr('Remplis l’identifiant et le mot de passe.');
+    if (mode !== 'login' && !pwdValid(f.password)) return showErr('Le mot de passe ne respecte pas toutes les règles indiquées.');
     if (mode !== 'login' && f.password !== f.confirm) return showErr('Les deux mots de passe ne correspondent pas.');
     const btn = form.querySelector('[type=submit]');
     busy(btn, true, 'Un instant…');
@@ -334,13 +352,12 @@ function drawDevices() {
   if (!isAdmin()) return drawSharedDevices();
   const ts = S.settings.tailscale.enabled;
   const info = S.scanInfo;
-  const net = S.subnets.map((s) => `${s}.0/24`).join(', ') || 'réseau non détecté';
   const rows = [...S.pending.map(pendingRow), ...S.devices.map(deviceRow)];
   $app.innerHTML = `
     <div class="page-head">
       <div class="lead">
         <h1>Appareils</h1>
-        <p class="t2 sm">${S.devices.length ? plural(S.devices.length, 'TV enregistrée') : 'Aucune TV enregistrée'} · <span class="mono">${esc(net)}</span>${ts ? ' · Tailscale' : ''}</p>
+        <p class="t2 sm">${S.devices.length ? plural(S.devices.length, 'TV enregistrée') : 'Aucune TV enregistrée'} · réseau local${ts ? ' et Tailscale' : ''}</p>
       </div>
       <button class="btn primary" id="scan" ${S.scanning ? 'disabled' : ''}>${S.scanning ? '<span class="spin"></span>Recherche en cours…' : `${ic('search')}Rechercher les TV`}</button>
     </div>
@@ -1023,7 +1040,7 @@ const accountSection = () => `
         <button class="btn sm" data-logout>${ic('logout')}Se déconnecter</button>
       </div>
       <div class="setting">
-        <div><div class="lbl">Mot de passe</div><p class="desc">8 caractères minimum.</p></div>
+        <div><div class="lbl">Mot de passe</div><p class="desc">8 caractères minimum, avec 1 lettre, 1 chiffre et 1 caractère spécial.</p></div>
         <button class="btn sm" id="change-pwd">Changer</button>
       </div>
       <div class="setting">
@@ -1142,6 +1159,7 @@ function bindAccount() {
         <h2>Changer le mot de passe</h2>
         <label class="field">Mot de passe actuel<input class="input lg" type="password" name="current" autocomplete="current-password" required></label>
         <label class="field">Nouveau mot de passe<input class="input lg" type="password" name="next" autocomplete="new-password" minlength="8" required></label>
+        ${PWD_RULES_HTML}
         <label class="field">Confirme le nouveau mot de passe<input class="input lg" type="password" name="confirm" autocomplete="new-password" minlength="8" required></label>
         <p class="form-error" id="pwd-error" role="alert" hidden></p>
         <div class="dlg-actions"><button class="btn" type="button" id="pwd-cancel">Annuler</button><button class="btn primary" type="submit">Enregistrer</button></div>
@@ -1151,9 +1169,11 @@ function bindAccount() {
     const form = $modal.querySelector('#pwd-form');
     const errBox = $modal.querySelector('#pwd-error');
     $modal.querySelector('#pwd-cancel').addEventListener('click', () => $modal.close());
+    watchPassword(form.querySelector('input[name=next]'), form.querySelector('.pwd-rules'));
     form.addEventListener('submit', async (ev) => {
       ev.preventDefault();
       const f = Object.fromEntries(new FormData(form));
+      if (!pwdValid(f.next)) { errBox.textContent = 'Le nouveau mot de passe ne respecte pas toutes les règles indiquées.'; errBox.hidden = false; return; }
       if (f.next !== f.confirm) { errBox.textContent = 'Les deux mots de passe ne correspondent pas.'; errBox.hidden = false; return; }
       const btn = form.querySelector('[type=submit]');
       busy(btn, true, 'Enregistrement…');
@@ -1292,7 +1312,6 @@ async function viewSettings(rid) {
         <div class="setting"><div><div class="lbl">Sécurité</div><p class="desc">ATV Manager peut modifier des TV. Si tu l'ouvres sur internet, passe par HTTPS (reverse proxy) et n'envoie les invitations qu'à des personnes de confiance.</p></div></div>
         <table class="table" style="border-top:1px solid var(--line)">
           <tr><td class="t3" style="width:40%">Version</td><td class="mono">${esc(S.version)}</td></tr>
-          <tr><td class="t3">Réseau scanné</td><td class="mono">${esc(S.subnets.map((s) => `${s}.0/24`).join(', ') || 'non détecté')}</td></tr>
           <tr><td class="t3">TV enregistrées</td><td class="num">${S.devices.length}</td></tr>
         </table>
       </div>

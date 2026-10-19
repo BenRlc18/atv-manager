@@ -36,7 +36,9 @@ function validate({ username, name, password }) {
   name = String(name || '').trim().slice(0, 40);
   password = String(password || '');
   if (!/^[a-z0-9._-]{3,32}$/.test(username)) throw err("L'identifiant doit faire 3 à 32 caractères : lettres, chiffres, point, tiret.");
-  if (password.length < 8) throw err('Le mot de passe doit faire au moins 8 caractères.');
+  if (password.length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
+    throw err('Le mot de passe doit faire au moins 8 caractères, avec au moins 1 lettre, 1 chiffre et 1 caractère spécial.');
+  }
   if (password.length > 200) throw err('Mot de passe trop long.');
   return { username, name: name || username, password };
 }

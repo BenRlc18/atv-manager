@@ -66,7 +66,7 @@ npm start
 
 - ATV Manager peut modifier des TV. Si tu l'ouvres sur internet, passe par un reverse proxy en **HTTPS**.
 - L'inscription se fait uniquement par invitation (lien valable 7 jours, une seule utilisation).
-- Les mots de passe sont hachés (scrypt), les sessions sont des cookies `HttpOnly`, et les tentatives de connexion sont limitées.
+- Mots de passe de 8 caractères minimum avec 1 lettre, 1 chiffre et 1 caractère spécial, hachés (scrypt), les sessions sont des cookies `HttpOnly`, et les tentatives de connexion sont limitées.
 - Double authentification optionnelle pour chaque compte, avec 8 codes de secours à usage unique.
 - Un invité ne voit que les TV que l'administrateur lui a partagées. Il ne peut ni scanner le réseau ni ajouter d'appareil.
 
