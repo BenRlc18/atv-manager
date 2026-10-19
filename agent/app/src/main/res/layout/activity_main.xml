@@ -29,6 +29,42 @@
                 android:textSize="26sp"
                 android:textStyle="bold" />
 
+            <!-- Préparation : mode développeur et débogage -->
+            <LinearLayout
+                android:id="@+id/setup_group"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/setup_step"
+                    style="@style/Label"
+                    android:layout_marginTop="0dp" />
+
+                <TextView
+                    android:id="@+id/setup_title"
+                    style="@style/Body"
+                    android:textColor="@color/text"
+                    android:textSize="22sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/setup_text"
+                    style="@style/Body" />
+
+                <Button
+                    android:id="@+id/setup_open"
+                    style="@style/Primary" />
+
+                <Button
+                    android:id="@+id/setup_skip"
+                    style="@style/Secondary"
+                    android:layout_marginTop="14dp"
+                    android:text="@string/setup_skip" />
+            </LinearLayout>
+
             <!-- Association -->
             <LinearLayout
                 android:id="@+id/pair_group"
@@ -38,10 +74,19 @@
                 android:orientation="vertical">
 
                 <TextView
+                    android:id="@+id/pair_step"
+                    style="@style/Label"
+                    android:layout_marginTop="0dp"
+                    android:text="@string/pair_step"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/intro"
                     style="@style/Body"
                     android:text="@string/intro" />
 
                 <TextView
+                    android:id="@+id/server_label"
                     style="@style/Label"
                     android:text="@string/server_label" />
 
@@ -75,6 +120,13 @@
                     android:id="@+id/pair"
                     style="@style/Primary"
                     android:text="@string/pair" />
+
+                <Button
+                    android:id="@+id/other_server"
+                    style="@style/Secondary"
+                    android:layout_marginTop="14dp"
+                    android:text="@string/other_server"
+                    android:visibility="gone" />
             </LinearLayout>
 
             <!-- État -->
@@ -113,6 +165,12 @@
                     android:id="@+id/hint"
                     style="@style/Body"
                     android:layout_marginTop="14dp" />
+
+                <Button
+                    android:id="@+id/open_dev"
+                    style="@style/Primary"
+                    android:text="@string/adb_open"
+                    android:visibility="gone" />
 
                 <Button
                     android:id="@+id/unpair"

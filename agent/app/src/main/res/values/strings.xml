@@ -8,4 +8,16 @@
     <string name="code_hint">000000</string>
     <string name="pair">Associer cette TV</string>
     <string name="unpair">Dissocier cette TV</string>
+    <string name="intro_default">Relie cette TV à ATV Manager pour l\'optimiser à distance. Entre le code à 6 chiffres affiché dans ATV Manager (« Ajouter ma TV »).</string>
+    <string name="other_server">Utiliser un autre serveur</string>
+    <string name="setup_skip">C\'est déjà fait, continuer</string>
+    <string name="dev_step">Étape 1 sur 3</string>
+    <string name="dev_title">Active le mode développeur</string>
+    <string name="dev_text">Le bouton ci-dessous ouvre l\'écran « À propos ». Descends jusqu\'à la ligne « Build » (ou « Build du système d\'exploitation Android TV ») et appuie 7 fois sur OK jusqu\'au message « Vous êtes maintenant développeur ». Reviens ensuite ici avec la touche Retour.</string>
+    <string name="dev_open">Ouvrir « À propos »</string>
+    <string name="adb_step">Étape 2 sur 3</string>
+    <string name="adb_title">Active le débogage</string>
+    <string name="adb_text">Le bouton ci-dessous ouvre les « Options pour les développeurs ». Active « Débogage USB », et aussi « Débogage réseau » ou « Débogage ADB via le réseau » s\'il existe. Reviens ensuite ici avec la touche Retour.</string>
+    <string name="adb_open">Ouvrir les options pour les développeurs</string>
+    <string name="pair_step">Étape 3 sur 3</string>
 </resources>

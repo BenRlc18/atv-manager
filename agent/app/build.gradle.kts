@@ -17,6 +17,13 @@ android {
         targetSdk = 33
         versionCode = (System.getenv("ATVM_VERSION_CODE") ?: "1").toInt()
         versionName = System.getenv("ATVM_VERSION_NAME") ?: "0.1.0"
+        // Serveur proposé par défaut (variable de dépôt GitHub ATVM_DEFAULT_SERVER) : les proches n'ont que le code à taper
+        val defaultServer = (System.getenv("ATVM_DEFAULT_SERVER") ?: "").replace("\"", "")
+        buildConfigField("String", "DEFAULT_SERVER", "\"$defaultServer\"")
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     signingConfigs {

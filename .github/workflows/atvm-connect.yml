@@ -49,6 +49,7 @@ jobs:
       - name: Compilation
         env:
           ATVM_KEYSTORE_PASSWORD: ${{ secrets.ATVM_KEYSTORE_PASSWORD }}
+          ATVM_DEFAULT_SERVER: ${{ vars.ATVM_DEFAULT_SERVER }}
         run: gradle -p agent assembleRelease --no-daemon --stacktrace
 
       - run: cp agent/app/build/outputs/apk/release/app-release.apk atvm-connect.apk

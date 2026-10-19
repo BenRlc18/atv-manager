@@ -987,13 +987,14 @@ async function viewAddRemote(rid) {
     <div class="page-head"><div class="lead"><h1>Ajouter une TV à distance</h1><p class="t2 sm">Pour une TV qui n'est pas sur le même réseau que le serveur, par exemple chez un proche. L'appli <b>ATVM Connect</b> relie la TV à ce site, sans rien configurer sur la box.</p></div></div>
     <div class="panel">
       <ol class="steps">
-        <li><div><h3>Active le débogage sur la TV</h3><p>Suis le <a href="#/guide">guide de connexion</a> (étapes 1 et 2). Active bien le <b>débogage réseau</b> ou le <b>débogage ADB via le réseau</b> s'il existe.</p></div></li>
         <li><div><h3>Installe ATVM Connect</h3>
           <p>Sur la TV, installe l'appli <b>Downloader</b> depuis le Play Store, ouvre-la et tape ${S.features.downloaderCode ? 'ce code' : 'cette adresse'} :</p>
           ${S.features.downloaderCode ? `<div class="pair-code mono">${esc(S.features.downloaderCode)}</div><p class="sm t3">ou l'adresse <span class="mono">${esc(apk)}</span></p>` : `<div class="copy-line"><span class="mono">${esc(apk)}</span><button class="btn sm" data-copyline="${esc(`https://${apk}`)}">${ic('copy')}Copier</button></div>`}
           <p>Lance le téléchargement puis <b>Installer</b>. Si Android le demande, autorise Downloader à installer des applis.</p></div></li>
-        <li><div><h3>Associe la TV</h3>
-          <p>Ouvre ATVM Connect sur la TV et entre l'adresse <span class="mono">${esc(location.origin)}</span> puis ce code :</p>
+        <li><div><h3>Ouvre ATVM Connect et suis ses instructions</h3>
+          <p>L'appli vérifie si le <b>mode développeur</b> et le <b>débogage</b> sont actifs. Sinon, elle ouvre directement le bon écran des paramètres et explique quoi faire : 7 appuis sur « Build », puis activer « Débogage USB » et « Débogage réseau ». Plus besoin de chercher dans les menus.</p></div></li>
+        <li><div><h3>Entre le code dans l'appli</h3>
+          <p>À la dernière étape, ATVM Connect demande ce code. Si elle demande aussi une adresse, entre <span class="mono">${esc(location.origin)}</span>.</p>
           <div id="pair-box"><button class="btn primary" id="pair-gen">Générer un code</button></div></div></li>
         <li><div><h3>Autorise le débogage</h3><p>La TV affiche « Autoriser le débogage ? » : coche <b>Toujours autoriser</b> et valide. La TV apparaît alors automatiquement ici et dans <a href="#/">${isAdmin() ? 'Appareils' : 'Mes TV'}</a>.</p></div></li>
       </ol>
