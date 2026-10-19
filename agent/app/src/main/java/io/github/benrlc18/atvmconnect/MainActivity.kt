@@ -92,6 +92,9 @@ class MainActivity : Activity() {
         findViewById<Button>(R.id.unpair).setOnClickListener {
             AgentService.stop(this)
             prefs.clearPairing()
+            // Retour au serveur par défaut s'il existe, sinon on garde l'adresse saisie
+            if (defaultServer.isNotEmpty()) { prefs.server = ""; customServer = false; server.setText(defaultServer.removePrefix("https://")) }
+            shownStep = -1
             refresh()
         }
     }
