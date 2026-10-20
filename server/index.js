@@ -72,6 +72,7 @@ const publicDevice = (d, withUsers) => ({
   id: d.id, label: d.label || '', brand: d.brand, model: d.model, deviceName: d.deviceName, android: d.android,
   host: d.host, port: d.port, remote: !!d.remote, tsName: d.tsName || '', tsTagged: !!d.tsTagged, lastSeen: d.lastSeen, isTv: d.isTv,
   transport: d.transport || 'adb',
+  audit: d.audit || null,
   ...(d.transport === 'agent' ? { agent: AG.status(d.agentId) } : {}),
   ...(withUsers ? { users: d.users || [] } : {}),
 });
@@ -222,9 +223,27 @@ route('GET', '/api/devices/:id/plan', 'user', async (ctx, p) => {
   return O.plan(target, dev, ctx.query.get('level'), ctx.query.get('mode') === 'manual' ? 'manual' : 'recommended');
 });
 
+// Contrôle de l'optimisation : le résumé est mémorisé sur l'appareil pour la liste des TV
+async function runAudit(dev, target) {
+  const a = await O.audit(target);
+  const all = store.devices();
+  if (all[dev.id]) {
+    all[dev.id].audit = { level: a.level, partial: a.partial, at: a.at, next: a.next ? a.next.level : null };
+    store.saveDevices(all);
+  }
+  return a;
+}
+
+route('GET', '/api/devices/:id/audit', 'user', async (ctx, p) => {
+  const { dev, target } = await needDevice(ctx.user, p.id);
+  return runAudit(dev, target);
+});
+
 route('POST', '/api/devices/:id/apply', 'user', async (ctx, p) => {
   const { dev, target } = await needDevice(ctx.user, p.id);
-  return O.apply(target, dev, ctx.body);
+  const r = await O.apply(target, dev, ctx.body);
+  try { r.audit = await runAudit(dev, target); } catch { /* le contrôle est un bonus, l'optimisation reste valide */ }
+  return r;
 });
 
 route('GET', '/api/devices/:id/history', 'user', async (ctx, p) => {
@@ -236,7 +255,9 @@ route('GET', '/api/devices/:id/history', 'user', async (ctx, p) => {
 
 route('POST', '/api/devices/:id/restore', 'user', async (ctx, p) => {
   const { dev, target } = await needDevice(ctx.user, p.id);
-  return O.restore(target, dev, { snapshot: ctx.body.snapshot || 'all', pkg: ctx.body.pkg || null });
+  const r = await O.restore(target, dev, { snapshot: ctx.body.snapshot || 'all', pkg: ctx.body.pkg || null });
+  try { await runAudit(dev, target); } catch { /* idem */ }
+  return r;
 });
 
 route('POST', '/api/devices/:id/open-store', 'user', async (ctx, p) => {

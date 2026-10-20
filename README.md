@@ -15,6 +15,7 @@ Optimise et allège ton **Android TV** depuis un navigateur : PC, Android ou iPh
   - **N1 léger** : animations accélérées, caches vidés, applis en arrière-plan fermées, télémétrie coupée ;
   - **N2 moyen** : N1 + désactivation des applis inutiles (mode recommandé ou manuel, niveau de risque pour chaque appli) ;
   - **N3 avancé** : N2 + changement de lanceur.
+- **Contrôle de l'optimisation** : ATV Manager lit l'état réel de chaque TV (même optimisée ailleurs), affiche le niveau atteint et propose la prochaine amélioration possible.
 - **Tout est réversible** : les applis sont désactivées pour l'utilisateur (`pm disable-user`), jamais supprimées. On peut annuler une optimisation ou réactiver une seule appli depuis l'historique.
 - **Comptes** : le premier compte créé est administrateur. Il invite des proches avec un lien à usage unique et choisit les TV que chacun peut voir et optimiser.
 - **Double authentification optionnelle** (TOTP : Google Authenticator, 2FAS, Aegis…) avec codes de secours. L'administrateur peut la réinitialiser si un proche perd son téléphone.

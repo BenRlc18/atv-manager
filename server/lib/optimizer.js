@@ -284,4 +284,48 @@ async function openStore(target, pkg) {
   return { ok: true };
 }
 
-module.exports = { plan, apply, restore, openStore, LEVELS, catalog, isProtected };
+// --- Contrôle : niveau d'optimisation réellement atteint par la TV (même si elle a été optimisée ailleurs)
+const STOCK_LAUNCHERS = new Set(['com.google.android.apps.tv.launcherx', 'com.google.android.tvlauncher', 'com.google.android.leanbacklauncher']);
+
+async function audit(target) {
+  const [pk, settings, home] = await Promise.all([listPackages(target), getSettings(target), currentHome(target)]);
+  const installed = new Set([...pk.system, ...pk.user]);
+  const scale = (k) => { const v = parseFloat(settings[k]); return Number.isFinite(v) ? v : 1; };
+  const animOk = ANIMATION_KEYS.every((k) => scale(k) <= 0.5);
+
+  const count = (filter) => {
+    const list = catalog.apps.filter((a) => installed.has(a.pkg) && filter(a));
+    return { total: list.length, done: list.filter((a) => pk.disabled.has(a.pkg)).length, left: list.filter((a) => !pk.disabled.has(a.pkg)).map((a) => a.name) };
+  };
+  const telemetry = count((a) => a.level === 1);
+  const safe = count((a) => a.level === 2 && a.risk === 'safe');
+  const optional = count((a) => a.level === 2 && a.risk !== 'safe');
+
+  const homePkg = home ? home.split('/')[0] : '';
+  const altLauncher = catalog.launchers.find((l) => l.pkg === homePkg);
+  const launcher = { pkg: homePkg, alternative: !!altLauncher || (!!homePkg && !STOCK_LAUNCHERS.has(homePkg) && !/launcher|home|tvhome/i.test(homePkg)), name: altLauncher ? altLauncher.name : homePkg };
+
+  // Un niveau est atteint quand tout ce qu'il recommande est fait ; « partiel » quand une partie seulement l'est
+  const n1 = animOk && telemetry.done === telemetry.total;
+  const n1Partial = !n1 && (animOk || telemetry.done > 0);
+  const n2 = n1 && safe.done === safe.total && safe.total + optional.done > 0;
+  const n2Partial = !n2 && safe.done + optional.done > 0;
+  const n3 = n2 && launcher.alternative;
+  const level = n3 ? 3 : n2 ? 2 : n1 ? 1 : 0;
+  const partial = level === 0 ? n1Partial || n2Partial : level === 1 ? n2Partial : level === 2 ? launcher.alternative : false;
+
+  // Recommandation : le prochain gain possible
+  let next = null;
+  if (!animOk || telemetry.done < telemetry.total) next = { level: 1, text: `${!animOk ? 'Accélérer les animations' : ''}${!animOk && telemetry.done < telemetry.total ? ' et ' : ''}${telemetry.done < telemetry.total ? `couper ${telemetry.total - telemetry.done} service${telemetry.total - telemetry.done > 1 ? 's' : ''} de télémétrie` : ''}.` };
+  else if (safe.done < safe.total) next = { level: 2, text: `${safe.total - safe.done} appli${safe.total - safe.done > 1 ? 's' : ''} inutile${safe.total - safe.done > 1 ? 's' : ''} sans risque encore active${safe.total - safe.done > 1 ? 's' : ''}.` };
+  else if (!launcher.alternative) next = { level: 3, text: "Remplacer l'écran d'accueil d'origine par un lanceur léger, sans publicité (optionnel)." };
+
+  return {
+    at: new Date().toISOString(),
+    level, partial,
+    checks: { animations: { ok: animOk, values: ANIMATION_KEYS.map((k) => settings[k] && settings[k] !== 'null' ? settings[k] : '1.0') }, telemetry, safe, optional, launcher },
+    next,
+  };
+}
+
+module.exports = { plan, apply, restore, openStore, audit, LEVELS, catalog, isProtected };

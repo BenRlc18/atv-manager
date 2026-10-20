@@ -361,6 +361,7 @@ function drawDevices() {
         <p class="t2 sm">${S.devices.length ? plural(S.devices.length, 'TV enregistrée') : 'Aucune TV enregistrée'} · réseau local${ts ? ' et Tailscale' : ''}</p>
       </div>
       <div class="form-row" style="gap:8px">
+        ${S.devices.length ? `<button class="btn" id="audit-all">${ic('refresh')}Vérifier l'optimisation</button>` : ''}
         <a class="btn" href="#/add">${ic('link')}Ajouter à distance</a>
         <button class="btn primary" id="scan" ${S.scanning ? 'disabled' : ''}>${S.scanning ? '<span class="spin"></span>Recherche en cours…' : `${ic('search')}Rechercher les TV`}</button>
       </div>
@@ -395,6 +396,17 @@ function drawDevices() {
     ${S.devices.length ? '' : compatPanel()}`;
 
   $('#scan').addEventListener('click', doScan);
+  $('#audit-all')?.addEventListener('click', async (e) => {
+    busy(e.currentTarget, true, 'Vérification…');
+    let ok = 0;
+    let ko = 0;
+    for (const d of S.devices) {
+      try { await api(`/api/devices/${encodeURIComponent(d.id)}/audit`); ok++; } catch { ko++; }
+    }
+    await loadState();
+    toast(ko ? `${plural(ok, 'TV vérifiée')}, ${ko} injoignable${ko > 1 ? 's' : ''}.` : `${plural(ok, 'TV vérifiée')}.`);
+    if (currentTab === 'devices' && !currentDevice) drawDevices();
+  });
   $('#scan-empty')?.addEventListener('click', doScan);
   $('#manual').addEventListener('submit', async (ev) => {
     ev.preventDefault();
@@ -460,6 +472,14 @@ async function doScan() {
 const viaAgent = (d) => d.transport === 'agent';
 const agentState = (d) => (!d.agent || !d.agent.online ? ['', 'hors ligne'] : d.agent.adb === 'ok' ? ['ok', 'en ligne'] : ['note', 'débogage à autoriser']);
 
+// Résumé du contrôle d'optimisation : [classe du point, libellé]
+function auditLabel(a) {
+  if (!a) return ['', 'Optimisation non vérifiée'];
+  if (a.level === 0) return a.partial ? ['note', 'Optimisation partielle'] : ['', 'Non optimisée'];
+  if (a.next === null || a.next === undefined) return ['ok', `Optimisée N${a.level} · maximum`];
+  return [a.partial ? 'note' : 'ok', `Optimisée N${a.level}${a.partial ? ' (partiel)' : ''}`];
+}
+
 function deviceRow(d) {
   const fresh = viaAgent(d) ? d.agent && d.agent.online && d.agent.adb === 'ok' : Date.now() - (d.lastSeen || 0) < 6e5;
   const model = [d.brand, d.model].filter(Boolean).join(' ');
@@ -473,6 +493,7 @@ function deviceRow(d) {
       <div class="side">
         <span class="status"><span class="dot ${viaAgent(d) ? agentState(d)[0] : fresh ? 'ok' : ''}"></span>${esc(viaAgent(d) ? agentState(d)[1] : ago(d.lastSeen))}</span>
         ${d.remote && !d.tsTagged ? '<span class="tag">Sans étiquette Tailscale</span>' : ''}
+        <span class="tag"><span class="dot ${auditLabel(d.audit)[0]}"></span>${esc(auditLabel(d.audit)[1])}</span>
       </div>
       <span class="chev">${ic('chevron')}</span>
     </a></li>`;
@@ -554,6 +575,7 @@ async function viewDevice(rid, id) {
       <div class="spec"><span class="k">Allumée depuis</span><span class="v t3">—</span></div>
     </div></div>
     <div id="conn-error"></div>
+    <section class="section" id="audit"></section>
     ${isAdmin() && d.remote && !viaAgent(d) && !d.tsTagged ? `<div class="note attn" id="ts-isolate-box">${ic('alert')}<div class="stack"><span><b>TV Tailscale sans étiquette :</b> elle peut voir tout ton réseau Tailscale, et sa clé expirera dans quelques mois.</span><div><button class="btn sm" id="ts-isolate">Isoler cette TV (${esc(S.settings.tailscale.tag || 'tag:tvbox')}, clé sans expiration)</button></div></div></div>` : ''}
 
     <section class="section">
@@ -679,6 +701,7 @@ async function loadDeviceStats(rid, id) {
       <div class="spec"><span class="k">Mémoire libre</span><span class="v">${fmtMb(s.ramFreeMb)} <small>/ ${fmtMb(s.ramTotalMb)}</small></span><div class="bar"><i style="width:${pct(s.ramFreeMb, s.ramTotalMb)}%"></i></div></div>
       <div class="spec"><span class="k">Stockage libre</span><span class="v">${fmtMb(s.diskFreeMb)} <small>/ ${fmtMb(s.diskTotalMb)}</small></span><div class="bar"><i style="width:${pct(s.diskFreeMb, s.diskTotalMb)}%"></i></div></div>
       <div class="spec"><span class="k">Allumée depuis</span><span class="v">${String(s.uptimeH).replace('.', ',')} <small>h</small></span></div>`;
+    drawAudit(rid, id);
   } catch (e) {
     if (rid !== renderId) return;
     $('#specs').querySelector('.spec').innerHTML = `<span class="k">État</span><span class="status" style="font-size:15px;color:var(--text)"><span class="dot bad"></span>Injoignable</span>`;
@@ -686,6 +709,42 @@ async function loadDeviceStats(rid, id) {
     $('#retry').addEventListener('click', render);
     $$('[data-level]').forEach((b) => b.setAttribute('aria-disabled', 'true'));
   }
+}
+
+// Contrôle de l'optimisation réelle de la TV, avec la prochaine amélioration possible
+async function drawAudit(rid, id) {
+  const box = $('#audit');
+  if (!box) return;
+  box.innerHTML = `<div class="section-head"><h2>État de l'optimisation</h2></div><div class="panel panel-pad"><span class="status"><span class="spin" style="width:12px;height:12px"></span>Vérification de la TV…</span></div>`;
+  let a;
+  try { a = await api(`/api/devices/${encodeURIComponent(id)}/audit`); } catch (e) { if (rid === renderId) box.innerHTML = ''; return; }
+  if (rid !== renderId) return;
+  const c = a.checks;
+  const [dot, label] = auditLabel({ level: a.level, partial: a.partial, next: a.next ? a.next.level : null });
+  const row = (ok, title, detail) => `<li class="${ok ? '' : 'ko'}">${ic(ok ? 'check' : 'x')}<span><b>${title}</b>${detail ? ` <span class="t2">${detail}</span>` : ''}</span></li>`;
+  const left = (x) => (x.left.length ? ` — encore actives : ${esc(x.left.slice(0, 4).join(', '))}${x.left.length > 4 ? ` et ${x.left.length - 4} autre${x.left.length - 4 > 1 ? 's' : ''}` : ''}` : '');
+  box.innerHTML = `
+    <div class="section-head"><h2>État de l'optimisation</h2><p>Vérifié le ${esc(fmtDate(a.at))}</p></div>
+    <div class="panel">
+      <div class="setting">
+        <div><div class="lbl"><span class="status" style="font-size:15px;color:var(--text)"><span class="dot ${dot}"></span>${esc(label)}</span></div>
+        <p class="desc">Lu directement sur la TV, même si elle a été optimisée autrement qu'avec ATV Manager.</p></div>
+      </div>
+      <div class="panel-pad" style="border-top:1px solid var(--line)">
+        <ul class="log">
+          ${row(c.animations.ok, 'Animations accélérées', c.animations.ok ? '' : `(actuellement ${esc(c.animations.values[0])}x)`)}
+          ${c.telemetry.total ? row(c.telemetry.done === c.telemetry.total, 'Télémétrie coupée', `${c.telemetry.done}/${c.telemetry.total}${left(c.telemetry)}`) : ''}
+          ${c.safe.total ? row(c.safe.done === c.safe.total, 'Applis inutiles sans risque désactivées', `${c.safe.done}/${c.safe.total}${left(c.safe)}`) : ''}
+          ${c.optional.total ? `<li>${ic('info')}<span><b>Applis « à savoir »</b> <span class="t2">${c.optional.done}/${c.optional.total} désactivées, à ton choix selon tes usages</span></span></li>` : ''}
+          ${row(c.launcher.alternative, 'Lanceur', c.launcher.alternative ? `: ${esc(c.launcher.name)}` : ": écran d'accueil d'origine")}
+        </ul>
+      </div>
+    </div>
+    ${a.next
+      ? `<div class="note attn">${ic('info')}<div class="stack"><span><b>Une meilleure optimisation est disponible.</b> ${esc(a.next.text)}</span><div><a class="btn sm primary" href="#/tv/${encodeURIComponent(id)}/level/${a.next.level}">Passer au niveau ${a.next.level}</a></div></div></div>`
+      : `<div class="note">${ic('check')}<div><b>Optimisation maximale.</b> Rien de plus à faire sur cette TV${c.optional.total > c.optional.done ? ` (il reste ${c.optional.total - c.optional.done} appli${c.optional.total - c.optional.done > 1 ? 's' : ''} « à savoir », à désactiver seulement si tu ne t'en sers pas)` : ''}.</div></div>`}`;
+  // Repère du niveau actuel dans le tableau comparatif
+  $('.compare thead th').forEach((th, i) => { if (i === a.level && a.level > 0) th.querySelector('.lvl span').textContent += ' · actuel'; });
 }
 
 async function drawHistory(rid, id) {
@@ -944,14 +1003,14 @@ async function viewOptimize(rid, id, levelStr) {
         method: 'POST',
         body: { level, apps: sel.map((a) => a.pkg), allowWarn: risky.length > 0, launcher: st.launcher ? { pkg: st.launcher, disableStock: st.disableStock } : null },
       });
-      drawResult(r.snapshot);
+      drawResult(r.snapshot, r.audit);
     } catch (e) {
       toast(e.message, 'error');
       busy(btn, false);
     }
   };
 
-  const drawResult = (snap) => {
+  const drawResult = (snap, audit) => {
     document.querySelector('.actionbar')?.remove();
     const ko = snap.log.filter((l) => !l.ok).length;
     const has = snap.ramBefore != null && snap.ramAfter != null;
@@ -968,6 +1027,7 @@ async function viewOptimize(rid, id, levelStr) {
       <section class="section"><div class="section-head"><h2>Détail</h2></div>
         <div class="panel panel-pad"><ul class="log">${snap.log.map((l) => `<li class="${l.ok ? '' : 'ko'}">${ic(l.ok ? 'check' : 'x')}<span>${esc(l.text)}</span></li>`).join('')}</ul></div>
       </section>
+      ${audit ? `<div class="note ${audit.next ? 'attn' : ''}">${ic(audit.next ? 'info' : 'check')}<div><b>Niveau atteint : ${esc(auditLabel({ level: audit.level, partial: audit.partial, next: audit.next ? audit.next.level : null })[1])}.</b> ${audit.next ? `Prochaine étape possible : ${esc(audit.next.text)}` : 'Rien de plus à faire.'}</div></div>` : ''}
       <div><a class="btn primary" href="#/tv/${encodeURIComponent(id)}">Retour à la TV</a></div>`;
   };
 
