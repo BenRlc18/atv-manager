@@ -311,10 +311,16 @@ async function restore(target, dev, { snapshot = 'all', pkg = null } = {}) {
   });
 }
 
+// Lanceur de la galerie : APK installée directement s'il n'est pas sur les stores, sinon fiche du store ouverte
 async function openStore(target, pkg, dev) {
-  if (!catalog.launchers.some((l) => l.pkg === pkg)) throw Object.assign(new Error('Appli inconnue.'), { code: 400 });
+  const l = catalog.launchers.find((x) => x.pkg === pkg);
+  if (!l) throw Object.assign(new Error('Appli inconnue.'), { code: 400 });
+  if (l.apk) {
+    await require('./apps').installApk(target, l.apk);
+    return { ok: true, mode: 'apk' };
+  }
   await require('./apps').openStore(target, dev, pkg);
-  return { ok: true };
+  return { ok: true, mode: 'store' };
 }
 
 // --- Contrôle : niveau d'optimisation réellement atteint par la TV (même si elle a été optimisée ailleurs)

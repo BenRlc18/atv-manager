@@ -936,9 +936,10 @@ async function viewOptimize(rid, id, levelStr) {
     $('#disable-stock')?.addEventListener('change', (e) => { st.disableStock = e.target.checked; updateBar(); });
     $$('[data-install]').forEach((b) => b.addEventListener('click', async (e) => {
       e.preventDefault();
-      busy(b, true, 'Ouverture…');
+      busy(b, true, b.dataset.apk ? 'Installation…' : 'Ouverture…');
       try {
-        await api(`/api/devices/${encodeURIComponent(id)}/open-store`, { method: 'POST', body: { pkg: b.dataset.install } });
+        const r = await api(`/api/devices/${encodeURIComponent(id)}/open-store`, { method: 'POST', body: { pkg: b.dataset.install } });
+        if (r.mode === 'apk') { toast('Lanceur installé sur la TV.'); await load(); return; }
         toast('Le Play Store est ouvert sur la TV : installe le lanceur, puis appuie sur « Actualiser ».');
       } catch (err) { toast(err.message, 'error'); }
       busy(b, false);
@@ -1002,7 +1003,7 @@ async function viewOptimize(rid, id, levelStr) {
       o.pkg, esc(o.name), esc(o.why),
       o.current ? '<span class="tag">Actuel</span>' : o.installed ? '<span class="tag">Installé</span>' : '<span class="tag">Non installé</span>',
       o.installed,
-      `${launcherMeta(o)}${launcherShots(o)}${o.installed ? '' : `<div><button type="button" class="btn sm" data-install="${esc(o.pkg)}">Installer sur la TV</button></div>`}`,
+      `${launcherMeta(o)}${launcherShots(o)}${o.installed ? '' : `<div><button type="button" class="btn sm" data-install="${esc(o.pkg)}"${o.apk ? ' data-apk="1"' : ''}>Installer sur la TV</button></div>`}`,
     )).join('');
     const others = l.others.map((c) => {
       const pkg = c.split('/')[0];
@@ -1024,8 +1025,8 @@ async function viewOptimize(rid, id, levelStr) {
   };
 
   const launcherMeta = (o) => {
-    const bits = [o.price, o.rating ? `${String(o.rating.toFixed(1)).replace('.', ',')} / 5 sur Google Play` : ''].filter(Boolean);
-    return bits.length ? `<p class="sm t3">${esc(bits.join(' · '))}</p>` : '';
+    const bits = [o.price, o.rating ? `${String(o.rating.toFixed(1)).replace('.', ',')} / 5 sur Google Play` : o.apk ? 'Hors Play Store, installé directement' : ''].filter(Boolean);
+    return bits.length ? `<p class="sm t3">${esc(bits.join(' · '))}${o.source ? ` · <a href="${esc(o.source)}" target="_blank" rel="noopener noreferrer">Code source</a>` : ''}</p>` : '';
   };
   const launcherShots = (o) => (o.shots && o.shots.length
     ? `<div class="shots">${o.shots.map((u, i) => `<a href="${esc(u)}" target="_blank" rel="noopener noreferrer"><img src="${esc(u)}" loading="lazy" alt="${esc(o.name)} : capture ${i + 1}"></a>`).join('')}</div>`

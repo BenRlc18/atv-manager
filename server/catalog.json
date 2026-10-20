@@ -595,6 +595,19 @@
         "https://play-lh.googleusercontent.com/37Wnzloyzt6RLaIg3grcTf_TPOjnSMYr3wGRMYkoe9MS_F0443jDqYK1eHj5PRyUAmQO6MVMg7_Tp7A1e3IavQ=w960-h540",
         "https://play-lh.googleusercontent.com/GZTAMtFh2u7EkIrpcJ_0aDule_TH0w_IXcVYw85zRgpsGB3CAQ7TIrJm-3k9hy280jUJTBACV6c6ndgpvuTZ=w960-h540"
       ]
+    },
+    {
+      "pkg": "dev.plume",
+      "name": "Plume Launcher",
+      "price": "Gratuit, open source",
+      "rating": null,
+      "why": "Ultra léger (0,4 Mo, environ 50 Mo de mémoire) : rangée d'applis, « Reprendre la lecture », fonds d'écran, thème clair ou sombre, raccourcis HDMI. Sans pub ni suivi.",
+      "apk": "https://github.com/aradhyas8/Plume_Launcher/releases/latest/download/Plume.apk",
+      "source": "https://github.com/aradhyas8/Plume_Launcher",
+      "shots": [
+        "https://raw.githubusercontent.com/aradhyas8/Plume_Launcher/main/docs/home-light.jpg",
+        "https://raw.githubusercontent.com/aradhyas8/Plume_Launcher/main/docs/home-dark.jpg"
+      ]
     }
   ]
 }

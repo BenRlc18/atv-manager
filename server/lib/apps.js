@@ -83,4 +83,4 @@ async function install(target, dev, appId) {
   return { mode: 'store', message: `La fiche de ${app.name} est ouverte sur la TV : choisis « Installer » avec la télécommande.` };
 }
 
-module.exports = { list, upsert, remove, status, install, openStore, isFireTv };
+module.exports = { list, upsert, remove, status, install, installApk, openStore, isFireTv };
