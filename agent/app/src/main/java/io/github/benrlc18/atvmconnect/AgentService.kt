@@ -19,6 +19,7 @@ import okhttp3.WebSocketListener
 import org.json.JSONObject
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Service permanent : garde une connexion WebSocket sortante vers ATV Manager
@@ -46,9 +47,29 @@ class AgentService : Service() {
         prefs = Prefs(this)
         adb = LocalAdb(this)
         startForeground(NOTIF_ID, notification("Connexion…"))
-        exec.execute { adb.check(); sendStatus(); publish() }
+        requestAuth()
         connect()
         main.postDelayed(adbWatch, 15_000)
+    }
+
+    // Autorisation ADB sur un fil dédié : elle peut attendre 2 minutes que la personne accepte la fenêtre
+    private val authExec = Executors.newSingleThreadExecutor()
+    private val authPending = AtomicBoolean(false)
+
+    private fun requestAuth() {
+        if (!authPending.compareAndSet(false, true)) return
+        authExec.execute {
+            try {
+                val before = adb.state
+                // L'état passe à « en attente » au début de l'attente : on le publie juste après
+                main.postDelayed({ sendStatus(); publish() }, 2500)
+                adb.authorize()
+                if (adb.state != before) sendStatus()
+                publish()
+            } finally {
+                authPending.set(false)
+            }
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -61,6 +82,7 @@ class AgentService : Service() {
         main.removeCallbacksAndMessages(null)
         socket?.close(1000, "arrêt")
         exec.shutdownNow()
+        authExec.shutdownNow()
         adb.close()
         status = Status()
         super.onDestroy()
@@ -70,12 +92,7 @@ class AgentService : Service() {
     private val adbWatch = object : Runnable {
         override fun run() {
             if (stopped) return
-            if (adb.state != LocalAdb.State.OK) exec.execute {
-                val before = adb.state
-                adb.check()
-                if (adb.state != before) sendStatus()
-                publish()
-            }
+            if (adb.state != LocalAdb.State.OK) requestAuth()
             main.postDelayed(this, 15_000)
         }
     }
@@ -149,6 +166,7 @@ class AgentService : Service() {
 
     private fun adbState() = when (adb.state) {
         LocalAdb.State.OK -> "ok"
+        LocalAdb.State.WAITING -> "waiting"
         LocalAdb.State.UNAUTHORIZED -> "unauthorized"
         LocalAdb.State.UNAVAILABLE -> "unavailable"
         LocalAdb.State.UNKNOWN -> "unknown"

@@ -225,7 +225,7 @@ route('GET', '/api/devices/:id/plan', 'user', async (ctx, p) => {
 
 // Contrôle de l'optimisation : le résumé est mémorisé sur l'appareil pour la liste des TV
 async function runAudit(dev, target) {
-  const a = await O.audit(target);
+  const a = await O.audit(target, dev);
   const all = store.devices();
   if (all[dev.id]) {
     all[dev.id].audit = { level: a.level, partial: a.partial, at: a.at, next: a.next ? a.next.level : null };

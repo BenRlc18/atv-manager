@@ -470,7 +470,7 @@ async function doScan() {
 }
 
 const viaAgent = (d) => d.transport === 'agent';
-const agentState = (d) => (!d.agent || !d.agent.online ? ['', 'hors ligne'] : d.agent.adb === 'ok' ? ['ok', 'en ligne'] : ['note', 'débogage à autoriser']);
+const agentState = (d) => (!d.agent || !d.agent.online ? ['', 'hors ligne'] : d.agent.adb === 'ok' ? ['ok', 'en ligne'] : d.agent.adb === 'waiting' ? ['note', 'fenêtre d’autorisation affichée'] : ['note', 'débogage à autoriser']);
 
 // Résumé du contrôle d'optimisation : [classe du point, libellé]
 function auditLabel(a) {
@@ -531,7 +531,7 @@ function compatPanel() {
       <div class="panel compat">
         <div>
           <div class="status"><span class="dot ok"></span><b style="color:var(--text)">Compatible : Android TV et Google TV</b></div>
-          <p class="sm t2">TV Sony, TCL, Philips (gammes Android), Xiaomi, Nokia… et les boîtiers et clés : Chromecast avec Google TV, Xiaomi TV Stick et Mi Box, Nvidia Shield, boîtiers Android.</p>
+          <p class="sm t2">TV Sony, TCL, Philips (gammes Android), Xiaomi, Nokia… et les boîtiers et clés : Chromecast avec Google TV, Fire TV Stick, Xiaomi TV Stick et Mi Box, Nvidia Shield, boîtiers Android.</p>
           <p class="sm t3">Hisense, Toshiba et Philips vendent aussi des modèles sous d'autres systèmes : vérifie celui de ta TV dans ses paramètres.</p>
         </div>
         <div>
@@ -732,7 +732,7 @@ async function drawAudit(rid, id) {
       </div>
       <div class="panel-pad" style="border-top:1px solid var(--line)">
         <ul class="log">
-          ${row(c.animations.ok, 'Animations accélérées', c.animations.ok ? '' : `(actuellement ${esc(c.animations.values[0])}x)`)}
+          ${c.animations.skipped ? `<li>${ic('info')}<span><b>Animations conservées</b> <span class="t2">Fire TV : les modifier rendrait ses paramètres inaccessibles</span></span></li>` : row(c.animations.ok, 'Animations accélérées', c.animations.ok ? '' : `(actuellement ${esc(c.animations.values[0])}x)`)}
           ${c.telemetry.total ? row(c.telemetry.done === c.telemetry.total, 'Télémétrie coupée', `${c.telemetry.done}/${c.telemetry.total}${left(c.telemetry)}`) : ''}
           ${c.safe.total ? row(c.safe.done === c.safe.total, 'Applis inutiles sans risque désactivées', `${c.safe.done}/${c.safe.total}${left(c.safe)}`) : ''}
           ${c.optional.total ? `<li>${ic('info')}<span><b>Applis « à savoir »</b> <span class="t2">${c.optional.done}/${c.optional.total} désactivées, à ton choix selon tes usages</span></span></li>` : ''}
@@ -827,7 +827,7 @@ async function viewOptimize(rid, id, levelStr) {
         <div class="section-head"><h2>Réglages et nettoyage</h2><p>Mémoire libre actuellement : <b class="num">${p.ramFreeMb != null ? fmtMb(p.ramFreeMb) : '?'}</b></p></div>
         <div class="panel panel-pad">
           <ul class="log">
-            <li>${ic('check')}<span>${anim ? `Animations accélérées : ${esc(anim.from)}x → ${esc(anim.to)}x` : 'Animations déjà à 0,5x'}</span></li>
+            <li>${ic('check')}<span>${p.animSkipped ? 'Animations conservées (Fire TV : nécessaire pour accéder à ses paramètres)' : anim ? `Animations accélérées : ${esc(anim.from)}x → ${esc(anim.to)}x` : 'Animations déjà à 0,5x'}</span></li>
             <li>${ic('check')}<span>Caches des applis vidés, sans toucher à tes données ni à tes comptes</span></li>
             <li>${ic('check')}<span>Applis en arrière-plan fermées</span></li>
           </ul>
@@ -1128,6 +1128,14 @@ const GUIDES = {
     debug: ['Paramètres', "Préférences de l'appareil", 'Options pour les développeurs', 'Débogage USB'],
     ip: ['Paramètres', 'Réseau et Internet', 'ton réseau', 'Adresse IP'],
     note: 'Sur certaines Philips et Sony, ces menus sont rangés dans « Paramètres Android » ou « Tous les paramètres ».',
+  },
+  firetv: {
+    label: 'Fire TV',
+    hint: 'Fire TV Stick, Fire TV Cube, TV avec Fire TV intégré (Amazon).',
+    dev: ['Paramètres', 'Ma Fire TV', 'À propos', 'nom de ta Fire TV (ex. « Fire TV Stick 4K »)'],
+    debug: ['Paramètres', 'Ma Fire TV', 'Options pour les développeurs', 'Débogage ADB'],
+    ip: ['Paramètres', 'Ma Fire TV', 'À propos', 'Réseau', 'Adresse IP'],
+    note: "Sur une Fire TV, ATV Manager ne modifie jamais les animations (sinon ses paramètres deviennent inaccessibles). Si la fenêtre « Autoriser le débogage ? » n'apparaît pas, désactive puis réactive « Débogage ADB » et patiente quelques secondes.",
   },
   box: {
     label: 'Boîtier Android',

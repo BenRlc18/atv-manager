@@ -47,6 +47,7 @@ class MainActivity : Activity() {
     private var shownStep = -1
 
     private val defaultServer: String get() = Prefs.normalizeServer(BuildConfig.DEFAULT_SERVER)
+    private val isFireTv = Build.MANUFACTURER.equals("Amazon", ignoreCase = true)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -137,8 +138,8 @@ class MainActivity : Activity() {
         if (step != shownStep) {
             shownStep = step
             when (step) {
-                1 -> showSetup(R.string.dev_step, R.string.dev_title, R.string.dev_text, R.string.dev_open, Settings.ACTION_DEVICE_INFO_SETTINGS)
-                2 -> showSetup(R.string.adb_step, R.string.adb_title, R.string.adb_text, R.string.adb_open, Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)
+                1 -> showSetup(R.string.dev_step, R.string.dev_title, if (isFireTv) R.string.dev_text_fire else R.string.dev_text, R.string.dev_open, Settings.ACTION_DEVICE_INFO_SETTINGS)
+                2 -> showSetup(R.string.adb_step, R.string.adb_title, if (isFireTv) R.string.adb_text_fire else R.string.adb_text, R.string.adb_open, Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)
                 3 -> showPair()
             }
         }
@@ -173,6 +174,7 @@ class MainActivity : Activity() {
         }
         adbLine.text = when (s.adb) {
             "ok" -> "● Débogage autorisé"
+            "waiting" -> "○ En attente de ton accord : regarde la fenêtre à l'écran"
             "unauthorized" -> "○ Débogage à autoriser"
             "unavailable" -> "○ Débogage réseau désactivé"
             else -> "○ Vérification du débogage…"

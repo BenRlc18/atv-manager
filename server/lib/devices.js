@@ -185,7 +185,7 @@ AG.setReadyHandler(async (agent) => {
 async function reachAgent(dev) {
   const st = AG.status(dev.agentId);
   if (!st.online) return { error: "La TV est hors ligne. Vérifie qu'elle est allumée et que l'appli ATVM Connect est ouverte au moins une fois.", code: 409, state: 'offline' };
-  if (st.adb === 'unauthorized') return { error: "Sur la TV, accepte la fenêtre « Autoriser le débogage ? » (coche « Toujours autoriser »).", code: 409, state: 'unauthorized' };
+  if (st.adb === 'unauthorized' || st.adb === 'waiting') return { error: st.message || "Sur la TV, accepte la fenêtre « Autoriser le débogage ? » (coche « Toujours autoriser »).", code: 409, state: st.adb };
   if (st.adb !== 'ok') return { error: st.message || "ATVM Connect n'arrive pas à utiliser le débogage de la TV. Vérifie que le débogage réseau est activé (onglet Connexion).", code: 409, state: 'adb' };
   const target = `agent:${dev.agentId}`;
   const info = await identify(target);

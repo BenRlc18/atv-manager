@@ -90,7 +90,8 @@ async function plan(target, dev, level, mode = 'recommended') {
   const installed = new Set([...pk.system, ...pk.user]);
   const memMb = (pkg) => Math.round(((mem.get(pkg) || 0) / 1024) * 10) / 10;
 
-  const settingsChanges = ANIMATION_KEYS.map((k) => ({ key: k, from: settings[k] && settings[k] !== 'null' ? settings[k] : '1.0', to: ANIMATION_TARGET }))
+  const animSkipped = isFireTv(dev);
+  const settingsChanges = animSkipped ? [] : ANIMATION_KEYS.map((k) => ({ key: k, from: settings[k] && settings[k] !== 'null' ? settings[k] : '1.0', to: ANIMATION_TARGET }))
     .filter((s) => s.from !== ANIMATION_TARGET);
 
   const apps = [];
@@ -134,7 +135,12 @@ async function plan(target, dev, level, mode = 'recommended') {
   }
 
   const checkedMem = apps.filter((a) => a.checked).reduce((s, a) => s + a.memMb, 0);
-  return { level, mode, info: LEVELS[level], levels: LEVELS, settingsChanges, apps, launcher, ramFreeMb: ramFree, ramTotalMb: null, estimateMb: Math.round(checkedMem) };
+  return { level, mode, info: LEVELS[level], levels: LEVELS, settingsChanges, animSkipped, apps, launcher, ramFreeMb: ramFree, estimateMb: Math.round(checkedMem) };
+}
+
+// Fire TV (Amazon) : on ne touche pas aux animations, sinon les paramètres de la Fire TV deviennent inaccessibles
+function isFireTv(dev) {
+  return /amazon/i.test(`${(dev && dev.manufacturer) || ''} ${(dev && dev.brand) || ''}`);
 }
 
 // --- Application
@@ -173,9 +179,10 @@ async function apply(target, dev, body) {
     snap.ramBefore = await ramFreeMb(target);
     const log = (ok, text) => snap.log.push({ ok, text });
 
-    // 1. Animations
+    // 1. Animations (jamais sur une Fire TV)
     const before = await getSettings(target);
-    for (const key of ANIMATION_KEYS) {
+    if (isFireTv(dev)) log(true, 'Animations conservées (Fire TV : nécessaire pour accéder à ses paramètres)');
+    for (const key of isFireTv(dev) ? [] : ANIMATION_KEYS) {
       if (before[key] === ANIMATION_TARGET) continue;
       const r = await A.shell(target, `settings put global ${key} ${ANIMATION_TARGET}`);
       if (r.ok) { snap.settings[key] = before[key] || 'null'; log(true, `Animation ${key} → ${ANIMATION_TARGET}`); } else log(false, `Animation ${key} : ${r.err || 'échec'}`);
@@ -287,11 +294,12 @@ async function openStore(target, pkg) {
 // --- Contrôle : niveau d'optimisation réellement atteint par la TV (même si elle a été optimisée ailleurs)
 const STOCK_LAUNCHERS = new Set(['com.google.android.apps.tv.launcherx', 'com.google.android.tvlauncher', 'com.google.android.leanbacklauncher']);
 
-async function audit(target) {
+async function audit(target, dev) {
   const [pk, settings, home] = await Promise.all([listPackages(target), getSettings(target), currentHome(target)]);
   const installed = new Set([...pk.system, ...pk.user]);
   const scale = (k) => { const v = parseFloat(settings[k]); return Number.isFinite(v) ? v : 1; };
-  const animOk = ANIMATION_KEYS.every((k) => scale(k) <= 0.5);
+  const animSkipped = isFireTv(dev);
+  const animOk = animSkipped || ANIMATION_KEYS.every((k) => scale(k) <= 0.5);
 
   const count = (filter) => {
     const list = catalog.apps.filter((a) => installed.has(a.pkg) && filter(a));
@@ -323,7 +331,7 @@ async function audit(target) {
   return {
     at: new Date().toISOString(),
     level, partial,
-    checks: { animations: { ok: animOk, values: ANIMATION_KEYS.map((k) => settings[k] && settings[k] !== 'null' ? settings[k] : '1.0') }, telemetry, safe, optional, launcher },
+    checks: { animations: { ok: animOk, skipped: animSkipped, values: ANIMATION_KEYS.map((k) => settings[k] && settings[k] !== 'null' ? settings[k] : '1.0') }, telemetry, safe, optional, launcher },
     next,
   };
 }
