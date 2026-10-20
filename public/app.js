@@ -601,6 +601,7 @@ async function viewDevice(rid, id) {
     </div></div>
     <div id="conn-error"></div>
     <section class="section" id="audit"></section>
+    <section class="section" id="apps-install"></section>
     ${isAdmin() && d.remote && !viaAgent(d) && !d.tsTagged ? `<div class="note attn" id="ts-isolate-box">${ic('alert')}<div class="stack"><span><b>TV Tailscale sans étiquette :</b> elle peut voir tout ton réseau Tailscale, et sa clé expirera dans quelques mois.</span><div><button class="btn sm" id="ts-isolate">Isoler cette TV (${esc(S.settings.tailscale.tag || 'tag:tvbox')}, clé sans expiration)</button></div></div></div>` : ''}
 
     <section class="section">
@@ -727,6 +728,7 @@ async function loadDeviceStats(rid, id) {
       <div class="spec"><span class="k">Stockage libre</span><span class="v">${fmtMb(s.diskFreeMb)} <small>/ ${fmtMb(s.diskTotalMb)}</small></span><div class="bar"><i style="width:${pct(s.diskFreeMb, s.diskTotalMb)}%"></i></div></div>
       <div class="spec"><span class="k">Allumée depuis</span><span class="v">${String(s.uptimeH).replace('.', ',')} <small>h</small></span></div>`;
     drawAudit(rid, id);
+    drawInstall(rid, id);
   } catch (e) {
     if (rid !== renderId) return;
     $('#specs').querySelector('.spec').innerHTML = `<span class="k">État</span><span class="status" style="font-size:15px;color:var(--text)"><span class="dot bad"></span>Injoignable</span>`;
@@ -770,6 +772,37 @@ async function drawAudit(rid, id) {
       : `<div class="note">${ic('check')}<div><b>Optimisation maximale.</b> Rien de plus à faire sur cette TV${c.optional.total > c.optional.done ? ` (il reste ${c.optional.total - c.optional.done} appli${c.optional.total - c.optional.done > 1 ? 's' : ''} « à savoir », à désactiver seulement si tu ne t'en sers pas)` : ''}.</div></div>`}`;
   // Repère du niveau actuel dans le tableau comparatif
   $('.compare thead th').forEach((th, i) => { if (i === a.level && a.level > 0) th.querySelector('.lvl span').textContent += ' · actuel'; });
+}
+
+// Applis proposées par l'administrateur : installation APK ou fiche du store ouverte sur la TV
+async function drawInstall(rid, id) {
+  const box = $('#apps-install');
+  if (!box) return;
+  let apps;
+  try { apps = (await api(`/api/devices/${encodeURIComponent(id)}/apps`)).apps; } catch { return; }
+  if (rid !== renderId) return;
+  if (!apps.length) {
+    box.innerHTML = isAdmin() ? `<div class="section-head"><h2>Applis à installer</h2></div><p class="panel panel-pad sm t2">Aucune appli proposée pour l'instant. Ajoute-en dans <a href="#/settings">Réglages › Applis proposées</a>.</p>` : '';
+    return;
+  }
+  box.innerHTML = `
+    <div class="section-head"><h2>Applis à installer</h2><p>Proposées par l'administrateur.</p></div>
+    <div class="panel">${apps.map((a) => `
+      <div class="invite-row">
+        <div style="min-width:0"><b>${esc(a.name)}</b> ${a.installed === true ? '<span class="tag"><span class="dot ok"></span>Installée</span>' : a.installed === false ? '<span class="tag">Non installée</span>' : ''}
+          ${a.desc ? `<div class="sm t2">${esc(a.desc)}</div>` : ''}
+          ${a.downloaderCode ? `<div class="sm t3">Ou dans Downloader, code <span class="mono">${esc(a.downloaderCode)}</span></div>` : ''}</div>
+        <button class="btn sm ${a.installed ? 'quiet' : 'primary'}" data-app-install="${esc(a.id)}">${a.apkUrl ? (a.installed ? 'Réinstaller' : 'Installer') : 'Ouvrir sur le store de la TV'}</button>
+      </div>`).join('')}
+    </div>`;
+  $('[data-app-install]', box).forEach((b) => b.addEventListener('click', async () => {
+    busy(b, true, 'En cours…');
+    try {
+      const r = await api(`/api/devices/${encodeURIComponent(id)}/apps/${encodeURIComponent(b.dataset.appInstall)}/install`, { method: 'POST' });
+      toast(r.message);
+      drawInstall(renderId, id);
+    } catch (e) { toast(e.message, 'error'); busy(b, false); }
+  }));
 }
 
 async function drawHistory(rid, id) {
@@ -969,7 +1002,7 @@ async function viewOptimize(rid, id, levelStr) {
       o.pkg, esc(o.name), esc(o.why),
       o.current ? '<span class="tag">Actuel</span>' : o.installed ? '<span class="tag">Installé</span>' : '<span class="tag">Non installé</span>',
       o.installed,
-      o.installed ? '' : `<div><button type="button" class="btn sm" data-install="${esc(o.pkg)}">Installer sur la TV</button></div>`,
+      `${launcherMeta(o)}${launcherShots(o)}${o.installed ? '' : `<div><button type="button" class="btn sm" data-install="${esc(o.pkg)}">Installer sur la TV</button></div>`}`,
     )).join('');
     const others = l.others.map((c) => {
       const pkg = c.split('/')[0];
@@ -978,7 +1011,8 @@ async function viewOptimize(rid, id, levelStr) {
     return `
       <section class="section">
         <div class="section-head"><h2>Lanceur</h2><button class="btn sm quiet" id="refresh-launchers">${ic('refresh')}Actualiser</button></div>
-        <p class="sm t2" style="margin-top:-4px">Accueil actuel : <b>${esc(l.stockName)}</b>. Le lanceur choisi devient l'écran d'accueil par défaut.</p>
+        <p class="sm t2" style="margin-top:-4px">Accueil actuel : <b>${esc(l.stockName)}</b>. Le lanceur choisi devient l'écran d'accueil par défaut. Captures publiées par les développeurs sur Google Play (clique pour agrandir).</p>
+        ${l.fireTv ? `<div class="note attn">${ic('info')}<div><b>Fire TV :</b> Amazon empêche de remplacer durablement l'écran d'accueil (le bouton Accueil rouvre celui d'Amazon). Tu peux installer un lanceur et l'ouvrir comme une appli.</div></div>` : ''}
         <div class="panel">
           ${choice('', "Garder l'accueil actuel", 'Applique seulement le niveau 2.', '', true)}
           ${opts}${others}
@@ -988,6 +1022,14 @@ async function viewOptimize(rid, id, levelStr) {
         </div>
       </section>`;
   };
+
+  const launcherMeta = (o) => {
+    const bits = [o.price, o.rating ? `${String(o.rating.toFixed(1)).replace('.', ',')} / 5 sur Google Play` : ''].filter(Boolean);
+    return bits.length ? `<p class="sm t3">${esc(bits.join(' · '))}</p>` : '';
+  };
+  const launcherShots = (o) => (o.shots && o.shots.length
+    ? `<div class="shots">${o.shots.map((u, i) => `<a href="${esc(u)}" target="_blank" rel="noopener noreferrer"><img src="${esc(u)}" loading="lazy" alt="${esc(o.name)} : capture ${i + 1}"></a>`).join('')}</div>`
+    : '');
 
   const updateBar = () => {
     const bar = document.querySelector('.actionbar');
@@ -1436,6 +1478,49 @@ async function drawPeople(rid) {
   }));
 }
 
+async function drawAppsAdmin(rid) {
+  let apps;
+  try { apps = (await api('/api/apps')).apps; } catch { return; }
+  if (rid !== renderId) return;
+  const box = $('#apps-admin');
+  if (!box) return;
+  box.innerHTML = `
+    <div class="section-head"><h2>Applis proposées</h2><p>Elles apparaissent sur la fiche de chaque TV, prêtes à installer.</p></div>
+    <div class="panel">
+      ${apps.map((a) => `
+        <div class="invite-row">
+          <div style="min-width:0"><b>${esc(a.name)}</b><div class="sm t3 mono" style="overflow-wrap:anywhere">${esc(a.apkUrl ? `APK : ${a.apkUrl}` : `Store : ${a.pkg}`)}${a.downloaderCode ? ` · Downloader ${esc(a.downloaderCode)}` : ''}</div></div>
+          <button class="btn sm danger" data-app-del="${esc(a.id)}">Retirer</button>
+        </div>`).join('')}
+      <form id="app-form" class="panel-pad section" style="gap:12px;${apps.length ? 'border-top:1px solid var(--line)' : ''}">
+        <div class="form-row">
+          <label class="field">Nom<input class="input lg" name="name" maxlength="60" placeholder="Plex" required></label>
+          <label class="field">Identifiant Play Store<input class="input lg mono" name="pkg" placeholder="com.plexapp.android"></label>
+        </div>
+        <label class="field">Description (optionnelle)<input class="input lg" name="desc" maxlength="200" placeholder="Pour regarder les films et séries du serveur"></label>
+        <div class="form-row">
+          <label class="field">Lien APK (optionnel)<input class="input lg mono" name="apkUrl" placeholder="https://…/appli.apk"></label>
+          <label class="field narrow" style="flex-basis:160px">Code Downloader<input class="input lg mono" name="downloaderCode" inputmode="numeric" placeholder="12345"></label>
+        </div>
+        <p class="sm t3">Avec un lien APK, l'appli s'installe directement sur la TV. Sinon, sa fiche s'ouvre sur le store de la TV (Play Store, ou Appstore sur Fire TV) et il suffit de choisir « Installer ».</p>
+        <div><button class="btn primary" type="submit">${ic('plus')}Ajouter l'appli</button></div>
+      </form>
+    </div>`;
+  $('#app-form', box).addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const btn = ev.target.querySelector('[type=submit]');
+    busy(btn, true, 'Ajout…');
+    try {
+      await api('/api/admin/apps', { method: 'POST', body: Object.fromEntries(new FormData(ev.target)) });
+      toast('Appli ajoutée.');
+      drawAppsAdmin(renderId);
+    } catch (e) { toast(e.message, 'error'); busy(btn, false); }
+  });
+  $('[data-app-del]', box).forEach((b) => b.addEventListener('click', async () => {
+    try { await api(`/api/admin/apps/${encodeURIComponent(b.dataset.appDel)}/delete`, { method: 'POST' }); drawAppsAdmin(renderId); } catch (e) { toast(e.message, 'error'); }
+  }));
+}
+
 async function copyText(text, okMsg) {
   try {
     await navigator.clipboard.writeText(text);
@@ -1504,6 +1589,7 @@ async function viewSettings(rid) {
     </section>
 
     <section class="section" id="people"></section>
+    <section class="section" id="apps-admin"></section>
 
     ${accountSection()}
 
@@ -1520,6 +1606,7 @@ async function viewSettings(rid) {
 
   bindAccount();
   drawPeople(rid);
+  drawAppsAdmin(rid);
   $('#ts-api')?.addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const f = Object.fromEntries(new FormData(ev.target));

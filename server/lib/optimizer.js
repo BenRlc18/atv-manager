@@ -131,6 +131,8 @@ async function plan(target, dev, level, mode = 'recommended') {
       stockName: stockPkg ? (stockPkg.includes('launcherx') ? 'Google TV' : stockPkg.includes('tvlauncher') || stockPkg.includes('leanback') ? 'Android TV' : stockPkg) : 'inconnu',
       options: catalog.launchers.map((l) => ({ ...l, installed: installed.has(l.pkg) && !pk.disabled.has(l.pkg), isHome: homePkgs.has(l.pkg), current: stockPkg === l.pkg })),
       others: homes.filter((c) => !catalog.launchers.some((l) => c.startsWith(`${l.pkg}/`)) && !c.startsWith(`${stockPkg}/`)),
+      // Sur Fire TV, Amazon empêche de remplacer durablement l'écran d'accueil
+      fireTv: isFireTv(dev),
     };
   }
 
@@ -284,10 +286,9 @@ async function restore(target, dev, { snapshot = 'all', pkg = null } = {}) {
   });
 }
 
-async function openStore(target, pkg) {
+async function openStore(target, pkg, dev) {
   if (!catalog.launchers.some((l) => l.pkg === pkg)) throw Object.assign(new Error('Appli inconnue.'), { code: 400 });
-  const r = await A.shell(target, `am start -a android.intent.action.VIEW -d market://details?id=${pkg}`);
-  if (!r.ok || /Error/i.test(r.out)) throw Object.assign(new Error("Impossible d'ouvrir le Play Store sur la TV."), { code: 409 });
+  await require('./apps').openStore(target, dev, pkg);
   return { ok: true };
 }
 

@@ -167,6 +167,21 @@ function call(agentId, cmd, timeout = 15000) {
   });
 }
 
+// Installation d'une APK : l'appli de la TV la télécharge elle-même puis l'installe (ATVM Connect 0.8.0 et plus)
+function install(agentId, url, timeout = 300000) {
+  const o = online.get(agentId);
+  if (!o) return Promise.resolve({ ok: false, out: '', err: 'TV hors ligne' });
+  const id = ++o.seq;
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      o.pending.delete(id);
+      resolve({ ok: false, out: '', err: "Pas de réponse de la TV : mets ATVM Connect à jour (version 0.8.0 ou plus), puis réessaie." });
+    }, timeout + 2000);
+    o.pending.set(id, (r) => { clearTimeout(timer); resolve(r); });
+    o.conn.send({ type: 'install', id, url, timeout });
+  });
+}
+
 // Journal (docker logs atv-manager) : une ligne par changement d'état d'une TV ATVM Connect
 const log = (a, text) => console.log(`[ATVM Connect] ${(a && a.name) || 'TV'} (${(a && a.id) || '?'}) : ${text}`);
 
@@ -235,4 +250,4 @@ function pending() {
     .sort((x, y) => String(y.createdAt).localeCompare(String(x.createdAt)));
 }
 
-module.exports = { handleUpgrade, createPairCode, pair, revoke, call, isOnline, status, agents, saveAgents, setReadyHandler, pending };
+module.exports = { handleUpgrade, createPairCode, pair, revoke, call, install, isOnline, status, agents, saveAgents, setReadyHandler, pending };

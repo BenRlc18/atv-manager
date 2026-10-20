@@ -10,6 +10,7 @@ const O = require('./lib/optimizer');
 const auth = require('./lib/auth');
 const AG = require('./lib/agents');
 const TS = require('./lib/tailscale');
+const APPS = require('./lib/apps');
 
 // Réglages renvoyés à l'interface : la clé API Tailscale n'en sort jamais
 const publicSettings = (s) => ({
@@ -227,6 +228,19 @@ route('POST', '/api/devices/:id/forget', 'user', async (ctx, p) => {
   return { ok: true };
 });
 
+// ---------- Applis proposées par l'administrateur
+route('GET', '/api/apps', 'user', async () => ({ apps: APPS.list() }));
+route('POST', '/api/admin/apps', 'admin', async (ctx) => ({ app: APPS.upsert(ctx.body) }));
+route('POST', '/api/admin/apps/:id/delete', 'admin', async (ctx, p) => { APPS.remove(decodeURIComponent(p.id)); return { ok: true }; });
+route('GET', '/api/devices/:id/apps', 'user', async (ctx, p) => {
+  const { target } = await needDevice(ctx.user, p.id);
+  return { apps: await APPS.status(target) };
+});
+route('POST', '/api/devices/:id/apps/:appId/install', 'user', async (ctx, p) => {
+  const { dev, target } = await needDevice(ctx.user, p.id);
+  return APPS.install(target, dev, decodeURIComponent(p.appId));
+});
+
 // ---------- ATVM Connect (appli sur la TV)
 route('POST', '/api/agent/pair-code', 'user', async (ctx) => AG.createPairCode(ctx.user));
 route('POST', '/api/agent/pair', 'public', async (ctx) => AG.pair(ctx.body.code, ctx.body.name, clientIp(ctx.req)));
@@ -275,8 +289,8 @@ route('POST', '/api/devices/:id/restore', 'user', async (ctx, p) => {
 });
 
 route('POST', '/api/devices/:id/open-store', 'user', async (ctx, p) => {
-  const { target } = await needDevice(ctx.user, p.id);
-  return O.openStore(target, String(ctx.body.pkg || ''));
+  const { dev, target } = await needDevice(ctx.user, p.id);
+  return O.openStore(target, String(ctx.body.pkg || ''), dev);
 });
 
 // ---------- Réglages et comptes (administrateur)

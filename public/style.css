@@ -375,6 +375,12 @@ body.auth-mode main { padding-bottom: 48px; }
 .copy-line .mono { flex: 1; font-size: 14px; color: var(--text); word-break: break-all; }
 .pair-code { font-size: 34px; font-weight: 600; letter-spacing: .12em; color: var(--text); margin: 6px 0 2px; font-variant-numeric: tabular-nums; }
 
+/* ---------- Galerie des lanceurs */
+.shots { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 2px; scroll-snap-type: x mandatory; }
+.shots a { flex: none; scroll-snap-align: start; line-height: 0; }
+.shots img { height: 120px; width: auto; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 6px; border: 1px solid var(--line); background: var(--sunken); }
+@media (max-width: 760px) { .shots img { height: 96px; } }
+
 /* ---------- Double authentification */
 .code-input { letter-spacing: .25em; font-size: 18px; text-align: center; }
 .tfa-steps { padding-left: 18px; display: flex; flex-direction: column; gap: 16px; color: var(--text-2); }

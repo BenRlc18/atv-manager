@@ -40,12 +40,31 @@ class LocalAdb(context: Context) {
     @Volatile var message: String = ""
         private set
 
+    /** Dernière erreur technique (affichée et envoyée au serveur pour le diagnostic). */
+    @Volatile var lastError: String = ""
+        private set
+
+    // Certaines TV (Fire TV notamment) refusent le shell « v2 » : on bascule alors sur l'ancien mode « shell: »
+    @Volatile private var legacyShell = false
+
+    private fun describe(e: Throwable) = "${e.javaClass.simpleName}: ${e.message ?: "sans message"}".take(200)
+
     /** Exécute une commande shell ; les commandes passent une par une. */
     fun shell(cmd: String, timeoutMs: Long): Result {
         val future = worker.submit<Result> {
             val d = dadb ?: Dadb.create(HOST, PORT, keyPair).also { dadb = it }
-            val r = d.shell(cmd)
-            Result(r.exitCode == 0, r.output, r.errorOutput)
+            if (!legacyShell) {
+                try {
+                    val r = d.shell(cmd)
+                    return@submit Result(r.exitCode == 0, r.output, r.errorOutput)
+                } catch (e: Exception) {
+                    lastError = "shell v2 : ${describe(e)}"
+                }
+            }
+            // Ancien mode : pas de code de sortie, on lit la sortie jusqu'à la fin
+            val out = d.open("shell:$cmd").use { it.source.readUtf8() }
+            legacyShell = true
+            Result(true, out, "")
         }
         return try {
             val r = future.get(timeoutMs, TimeUnit.MILLISECONDS)
@@ -57,8 +76,9 @@ class LocalAdb(context: Context) {
             Result(false, "", "délai dépassé")
         } catch (e: Exception) {
             reset()
+            lastError = describe(e.cause ?: e)
             if (!portOpen()) setState(State.UNAVAILABLE, portClosedMessage())
-            Result(false, "", "ADB indisponible : ${(e.cause ?: e).message ?: "erreur"}")
+            Result(false, "", "ADB indisponible : $lastError")
         }
     }
 
@@ -76,7 +96,11 @@ class LocalAdb(context: Context) {
             if (state != State.OK) setState(State.WAITING, waitingMessage())
             val r = shell("echo atvm-ok", AUTH_WAIT_MS)
             if (r.ok && r.out.contains("atvm-ok")) setState(State.OK, "")
-            else if (state != State.UNAVAILABLE) setState(State.UNAUTHORIZED, noDialogMessage())
+            else if (state != State.UNAVAILABLE) {
+                // Échec rapide = erreur technique (pas un refus) : on la montre pour le diagnostic
+                val detail = if (r.err == "délai dépassé") "" else " Détail technique : ${lastError.ifEmpty { r.err }}"
+                setState(State.UNAUTHORIZED, noDialogMessage() + detail)
+            }
             return state
         } finally {
             authorizing.set(false)
@@ -110,6 +134,25 @@ class LocalAdb(context: Context) {
     private fun reset() {
         try { dadb?.close() } catch (_: Exception) { }
         dadb = null
+    }
+
+    /** Installe une APK (téléchargée par l'appli) via l'ADB local de la TV. */
+    fun install(file: File, timeoutMs: Long): Result {
+        val future = worker.submit<Result> {
+            val d = dadb ?: Dadb.create(HOST, PORT, keyPair).also { dadb = it }
+            d.install(file)
+            Result(true, "Success", "")
+        }
+        return try {
+            future.get(timeoutMs, TimeUnit.MILLISECONDS)
+        } catch (e: TimeoutException) {
+            future.cancel(true)
+            reset()
+            Result(false, "", "délai dépassé")
+        } catch (e: Exception) {
+            reset()
+            Result(false, "", "Installation impossible : ${describe(e.cause ?: e)}")
+        }
     }
 
     /** Abandonne la tentative en cours (la fenêtre affichée se ferme) pour en relancer une neuve. */

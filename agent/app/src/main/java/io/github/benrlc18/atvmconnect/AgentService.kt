@@ -169,6 +169,27 @@ class AgentService : Service() {
                             publish()
                         }
                     }
+                    // Installation d'une appli proposée : téléchargement par la TV puis installation par l'ADB local
+                    "install" -> {
+                        val id = m.optInt("id")
+                        val url = m.optString("url")
+                        val timeout = m.optLong("timeout", 300_000L)
+                        exec.execute {
+                            val r = try {
+                                val file = java.io.File(cacheDir, "atvm-install.apk")
+                                val dl = OkHttpClient.Builder().connectTimeout(20, TimeUnit.SECONDS).readTimeout(120, TimeUnit.SECONDS).build()
+                                dl.newCall(Request.Builder().url(url).build()).execute().use { res ->
+                                    if (!res.isSuccessful) throw java.io.IOException("téléchargement refusé (erreur ${res.code})")
+                                    file.outputStream().use { out -> res.body!!.byteStream().copyTo(out) }
+                                }
+                                adb.install(file, timeout).also { file.delete() }
+                            } catch (e: Exception) {
+                                LocalAdb.Result(false, "", "Téléchargement impossible : ${e.message ?: e.javaClass.simpleName}")
+                            }
+                            val res = JSONObject().put("type", "result").put("id", id).put("ok", r.ok).put("out", r.out).put("err", r.err)
+                            webSocket.send(res.toString())
+                        }
+                    }
                     "error" -> {
                         if (m.optString("code") == "revoked") {
                             prefs.clearPairing()

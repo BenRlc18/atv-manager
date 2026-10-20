@@ -1,82 +1,609 @@
 {
   "_doc": "level 1 = coupé dès le niveau léger (télémétrie). level 2 = proposé au niveau moyen. risk : safe (pré-coché en mode recommandé), info (fonction perdue, non pré-coché), warn (déconseillé, confirmation demandée).",
   "apps": [
-    { "pkg": "com.google.android.feedback", "name": "Rapports de bug Google", "level": 1, "risk": "safe", "category": "Télémétrie", "why": "Envoie des rapports d'erreur à Google en arrière-plan.", "loss": "Aucune pour l'utilisateur." },
-    { "pkg": "com.android.traceur", "name": "Traçage système", "level": 1, "risk": "safe", "category": "Télémétrie", "why": "Outil de diagnostic pour développeurs.", "loss": "Aucune pour l'utilisateur." },
-    { "pkg": "com.tcl.logkit", "name": "Journaux TCL", "level": 1, "risk": "safe", "category": "Télémétrie", "brand": "TCL", "why": "Collecte de journaux et télémétrie TCL.", "loss": "Aucune pour l'utilisateur." },
-
-    { "pkg": "com.android.printspooler", "name": "Service d'impression", "level": 2, "risk": "safe", "category": "Inutile sur TV", "why": "Personne n'imprime depuis sa TV.", "loss": "Impression impossible." },
-    { "pkg": "com.android.wallpaper.livepicker", "name": "Fonds d'écran animés", "level": 2, "risk": "safe", "category": "Inutile sur TV", "why": "Fonction de téléphone, inutilisée sur TV.", "loss": "Aucune." },
-    { "pkg": "com.android.wallpaperbackup", "name": "Sauvegarde du fond d'écran", "level": 2, "risk": "safe", "category": "Inutile sur TV", "why": "Fonction de téléphone, inutilisée sur TV.", "loss": "Aucune." },
-    { "pkg": "com.android.hotspot2.osulogin", "name": "Connexion Wi-Fi Hotspot 2.0", "level": 2, "risk": "safe", "category": "Inutile sur TV", "why": "Sert aux bornes Wi-Fi publiques d'opérateurs.", "loss": "Connexion automatique aux hotspots d'opérateurs." },
-    { "pkg": "com.google.android.onetimeinitializer", "name": "Initialisation unique Google", "level": 2, "risk": "safe", "category": "Configuration terminée", "why": "Ne sert qu'au tout premier démarrage.", "loss": "Aucune." },
-    { "pkg": "com.google.android.partnersetup", "name": "Configuration partenaires", "level": 2, "risk": "safe", "category": "Configuration terminée", "why": "Réglages du fabricant appliqués au premier démarrage.", "loss": "Aucune." },
-    { "pkg": "com.google.android.syncadapters.calendar", "name": "Synchronisation agenda Google", "level": 2, "risk": "safe", "category": "Inutile sur TV", "why": "Synchronise un agenda que la TV n'affiche pas.", "loss": "Aucune." },
-    { "pkg": "com.google.android.play.games", "name": "Google Play Jeux", "level": 2, "risk": "safe", "category": "Applis Google", "why": "Service de jeux rarement utilisé sur TV.", "loss": "Succès et sauvegardes Play Jeux." },
-    { "pkg": "com.google.android.videos", "name": "Google Play Films", "level": 2, "risk": "safe", "category": "Applis Google", "why": "Service arrêté et remplacé par Google TV.", "loss": "Aucune." },
-    { "pkg": "com.android.providers.calendar", "name": "Stockage de l'agenda", "level": 2, "risk": "info", "category": "Inutile sur TV", "why": "Base de données d'agenda inutilisée sur TV.", "loss": "Une appli d'agenda installée ne fonctionnerait plus." },
-    { "pkg": "com.google.android.tungsten.setupwraith", "name": "Assistant de configuration Google TV", "level": 2, "risk": "info", "category": "Configuration terminée", "why": "Ne sert qu'à la première installation.", "loss": "Certains réglages de compte passent par lui ; réactivable depuis l'historique." },
-    { "pkg": "com.google.android.apps.tv.dreamx", "name": "Mode Ambiant (Google TV)", "level": 2, "risk": "info", "category": "Économiseur d'écran", "why": "Diaporama en veille qui consomme de la mémoire.", "loss": "Plus d'économiseur d'écran photos." },
-    { "pkg": "com.google.android.backdrop", "name": "Mode Ambiant (Android TV)", "level": 2, "risk": "info", "category": "Économiseur d'écran", "why": "Diaporama en veille qui consomme de la mémoire.", "loss": "Plus d'économiseur d'écran photos." },
-    { "pkg": "com.android.dreams.basic", "name": "Économiseur d'écran basique", "level": 2, "risk": "info", "category": "Économiseur d'écran", "why": "Économiseur d'écran simple.", "loss": "Plus d'économiseur d'écran par défaut." },
-    { "pkg": "com.google.android.tvrecommendations", "name": "Recommandations TV", "level": 2, "risk": "info", "category": "Publicité / suggestions", "why": "Alimente les suggestions de l'écran d'accueil.", "loss": "Moins de suggestions sur l'accueil." },
-    { "pkg": "com.google.android.youtube.tvmusic", "name": "YouTube Music", "level": 2, "risk": "info", "category": "Applis Google", "why": "Préinstallée, souvent inutilisée.", "loss": "L'appli YouTube Music." },
-    { "pkg": "com.google.android.speech.pumpkin", "name": "Reconnaissance vocale hors ligne", "level": 2, "risk": "info", "category": "Voix", "why": "Modèle vocal chargé en mémoire.", "loss": "Commandes vocales sans connexion." },
-    { "pkg": "com.google.android.tts", "name": "Synthèse vocale Google", "level": 2, "risk": "info", "category": "Accessibilité", "why": "Lecture vocale de texte.", "loss": "Lecture à voix haute (accessibilité)." },
-    { "pkg": "com.google.android.marvin.talkback", "name": "TalkBack", "level": 2, "risk": "info", "category": "Accessibilité", "why": "Lecteur d'écran pour malvoyants.", "loss": "Le lecteur d'écran." },
-    { "pkg": "com.android.managedprovisioning", "name": "Gestion entreprise", "level": 2, "risk": "info", "category": "Inutile sur TV", "why": "Configuration d'appareils d'entreprise.", "loss": "Aucune chez un particulier." },
-    { "pkg": "com.amazon.amazonvideo.livingroom", "name": "Prime Video", "level": 2, "risk": "info", "category": "Applis de streaming", "why": "Préinstallée ; à retirer seulement si tu ne l'utilises pas.", "loss": "L'appli Prime Video." },
-    { "pkg": "com.google.android.katniss", "name": "Google Assistant / recherche vocale", "level": 2, "risk": "warn", "category": "Voix", "why": "Gros consommateur de mémoire.", "loss": "Le bouton micro et la recherche vocale ne marchent plus." },
-    { "pkg": "com.google.android.apps.mediashell", "name": "Chromecast intégré", "level": 2, "risk": "warn", "category": "Diffusion", "why": "Tourne en permanence pour recevoir les diffusions.", "loss": "Impossible de caster depuis un téléphone." },
-    { "pkg": "com.android.providers.contacts", "name": "Stockage des contacts", "level": 2, "risk": "warn", "category": "Inutile sur TV", "why": "Base de contacts inutilisée sur TV.", "loss": "Certaines applis Google peuvent mal réagir." },
-
-    { "pkg": "com.tcl.exhibit", "name": "Mode démo magasin", "level": 2, "risk": "safe", "category": "Fabricant", "brand": "TCL", "why": "Démonstration en magasin.", "loss": "Aucune." },
-    { "pkg": "com.tcl.factory.view", "name": "Tests usine", "level": 2, "risk": "safe", "category": "Fabricant", "brand": "TCL", "why": "Outil de test en usine.", "loss": "Aucune." },
-    { "pkg": "com.tcl.esticker", "name": "Stickers TCL", "level": 2, "risk": "safe", "category": "Fabricant", "brand": "TCL", "why": "Autocollants promotionnels.", "loss": "Aucune." },
-    { "pkg": "com.tcl.initsetup", "name": "Configuration initiale TCL", "level": 2, "risk": "safe", "category": "Configuration terminée", "brand": "TCL", "why": "Ne sert qu'à la première installation.", "loss": "Aucune." },
-    { "pkg": "com.tcl.ocean.instructions", "name": "Instructions TCL", "level": 2, "risk": "safe", "category": "Fabricant", "brand": "TCL", "why": "Bulles d'aide de première utilisation.", "loss": "Aucune." },
-    { "pkg": "com.tcl.repairguide", "name": "Guide de réparation TCL", "level": 2, "risk": "safe", "category": "Fabricant", "brand": "TCL", "why": "Guide rarement utile.", "loss": "Le guide de dépannage intégré." },
-    { "pkg": "com.tcl.waterfall.overseas", "name": "Flux de contenus TCL", "level": 2, "risk": "safe", "category": "Publicité / suggestions", "brand": "TCL", "why": "Contenus promotionnels.", "loss": "Aucune." },
-    { "pkg": "com.tcl.hearaid", "name": "Aide auditive TCL", "level": 2, "risk": "safe", "category": "Fabricant", "brand": "TCL", "why": "Fonction d'accessibilité audio.", "loss": "L'aide auditive." },
-    { "pkg": "com.tcl.partnercustomizer", "name": "Personnalisation partenaires TCL", "level": 2, "risk": "safe", "category": "Publicité / suggestions", "brand": "TCL", "why": "Contenus et applis partenaires.", "loss": "Aucune." },
-    { "pkg": "com.tcl.gamebar", "name": "Barre de jeu TCL", "level": 2, "risk": "safe", "category": "Fabricant", "brand": "TCL", "why": "Superposition pour les jeux.", "loss": "La barre de jeu." },
-    { "pkg": "com.tcl.channelplus", "name": "Chaînes TCL gratuites", "level": 2, "risk": "safe", "category": "Publicité / suggestions", "brand": "TCL", "why": "Chaînes gratuites financées par la publicité.", "loss": "Ces chaînes." },
-    { "pkg": "com.tcl.interactive", "name": "Contenu interactif TCL", "level": 2, "risk": "safe", "category": "Publicité / suggestions", "brand": "TCL", "why": "Contenus promotionnels.", "loss": "Aucune." },
-    { "pkg": "com.tcl.magiconnectfree", "name": "TCL Magiconnect", "level": 2, "risk": "safe", "category": "Publicité / suggestions", "brand": "TCL", "why": "Contenus promotionnels.", "loss": "Aucune." },
-    { "pkg": "com.tcl.useragreement", "name": "Conditions d'utilisation TCL", "level": 2, "risk": "info", "category": "Configuration terminée", "brand": "TCL", "why": "Déjà acceptées.", "loss": "Aucune." },
-    { "pkg": "com.tcl.UpdatePeripheral", "name": "Mise à jour des accessoires TCL", "level": 2, "risk": "info", "category": "Fabricant", "brand": "TCL", "why": "Met à jour la télécommande et les accessoires.", "loss": "Mises à jour des accessoires TCL." },
-    { "pkg": "com.tcl.ttvs", "name": "Services TV TCL", "level": 2, "risk": "info", "category": "Publicité / suggestions", "brand": "TCL", "why": "Télémétrie et publicités TCL.", "loss": "Certains services en ligne TCL." },
-    { "pkg": "com.tcl.dashboard", "name": "Tableau de bord TCL", "level": 2, "risk": "info", "category": "Publicité / suggestions", "brand": "TCL", "why": "Recommandations et publicités.", "loss": "Le tableau de bord TCL." },
-    { "pkg": "com.tcl.messagebox", "name": "Messages TCL", "level": 2, "risk": "info", "category": "Fabricant", "brand": "TCL", "why": "Notifications du fabricant.", "loss": "Les messages TCL." },
-    { "pkg": "com.tcl.usercenter", "name": "Compte TCL", "level": 2, "risk": "info", "category": "Fabricant", "brand": "TCL", "why": "Compte cloud TCL.", "loss": "Les fonctions liées au compte TCL." },
-    { "pkg": "com.tcl.guard", "name": "Sécurité TCL", "level": 2, "risk": "info", "category": "Fabricant", "brand": "TCL", "why": "Outil de nettoyage du fabricant.", "loss": "L'outil de nettoyage TCL." },
-    { "pkg": "com.tcl.smartalexa", "name": "Alexa (TCL)", "level": 2, "risk": "info", "category": "Voix", "brand": "TCL", "why": "Assistant Alexa intégré.", "loss": "Alexa sur la TV." },
-    { "pkg": "com.tcl.t_solo", "name": "Commande vocale TCL", "level": 2, "risk": "info", "category": "Voix", "brand": "TCL", "why": "Assistant vocal du fabricant.", "loss": "La commande vocale TCL." },
-
-    { "pkg": "com.droidlogic.FileBrower", "name": "Explorateur de fichiers (boîtier)", "level": 2, "risk": "info", "category": "Fabricant", "why": "Explorateur basique des boîtiers Amlogic.", "loss": "L'explorateur de fichiers intégré." }
+    {
+      "pkg": "com.google.android.feedback",
+      "name": "Rapports de bug Google",
+      "level": 1,
+      "risk": "safe",
+      "category": "Télémétrie",
+      "why": "Envoie des rapports d'erreur à Google en arrière-plan.",
+      "loss": "Aucune pour l'utilisateur."
+    },
+    {
+      "pkg": "com.android.traceur",
+      "name": "Traçage système",
+      "level": 1,
+      "risk": "safe",
+      "category": "Télémétrie",
+      "why": "Outil de diagnostic pour développeurs.",
+      "loss": "Aucune pour l'utilisateur."
+    },
+    {
+      "pkg": "com.tcl.logkit",
+      "name": "Journaux TCL",
+      "level": 1,
+      "risk": "safe",
+      "category": "Télémétrie",
+      "brand": "TCL",
+      "why": "Collecte de journaux et télémétrie TCL.",
+      "loss": "Aucune pour l'utilisateur."
+    },
+    {
+      "pkg": "com.android.printspooler",
+      "name": "Service d'impression",
+      "level": 2,
+      "risk": "safe",
+      "category": "Inutile sur TV",
+      "why": "Personne n'imprime depuis sa TV.",
+      "loss": "Impression impossible."
+    },
+    {
+      "pkg": "com.android.wallpaper.livepicker",
+      "name": "Fonds d'écran animés",
+      "level": 2,
+      "risk": "safe",
+      "category": "Inutile sur TV",
+      "why": "Fonction de téléphone, inutilisée sur TV.",
+      "loss": "Aucune."
+    },
+    {
+      "pkg": "com.android.wallpaperbackup",
+      "name": "Sauvegarde du fond d'écran",
+      "level": 2,
+      "risk": "safe",
+      "category": "Inutile sur TV",
+      "why": "Fonction de téléphone, inutilisée sur TV.",
+      "loss": "Aucune."
+    },
+    {
+      "pkg": "com.android.hotspot2.osulogin",
+      "name": "Connexion Wi-Fi Hotspot 2.0",
+      "level": 2,
+      "risk": "safe",
+      "category": "Inutile sur TV",
+      "why": "Sert aux bornes Wi-Fi publiques d'opérateurs.",
+      "loss": "Connexion automatique aux hotspots d'opérateurs."
+    },
+    {
+      "pkg": "com.google.android.onetimeinitializer",
+      "name": "Initialisation unique Google",
+      "level": 2,
+      "risk": "safe",
+      "category": "Configuration terminée",
+      "why": "Ne sert qu'au tout premier démarrage.",
+      "loss": "Aucune."
+    },
+    {
+      "pkg": "com.google.android.partnersetup",
+      "name": "Configuration partenaires",
+      "level": 2,
+      "risk": "safe",
+      "category": "Configuration terminée",
+      "why": "Réglages du fabricant appliqués au premier démarrage.",
+      "loss": "Aucune."
+    },
+    {
+      "pkg": "com.google.android.syncadapters.calendar",
+      "name": "Synchronisation agenda Google",
+      "level": 2,
+      "risk": "safe",
+      "category": "Inutile sur TV",
+      "why": "Synchronise un agenda que la TV n'affiche pas.",
+      "loss": "Aucune."
+    },
+    {
+      "pkg": "com.google.android.play.games",
+      "name": "Google Play Jeux",
+      "level": 2,
+      "risk": "safe",
+      "category": "Applis Google",
+      "why": "Service de jeux rarement utilisé sur TV.",
+      "loss": "Succès et sauvegardes Play Jeux."
+    },
+    {
+      "pkg": "com.google.android.videos",
+      "name": "Google Play Films",
+      "level": 2,
+      "risk": "safe",
+      "category": "Applis Google",
+      "why": "Service arrêté et remplacé par Google TV.",
+      "loss": "Aucune."
+    },
+    {
+      "pkg": "com.android.providers.calendar",
+      "name": "Stockage de l'agenda",
+      "level": 2,
+      "risk": "info",
+      "category": "Inutile sur TV",
+      "why": "Base de données d'agenda inutilisée sur TV.",
+      "loss": "Une appli d'agenda installée ne fonctionnerait plus."
+    },
+    {
+      "pkg": "com.google.android.tungsten.setupwraith",
+      "name": "Assistant de configuration Google TV",
+      "level": 2,
+      "risk": "info",
+      "category": "Configuration terminée",
+      "why": "Ne sert qu'à la première installation.",
+      "loss": "Certains réglages de compte passent par lui ; réactivable depuis l'historique."
+    },
+    {
+      "pkg": "com.google.android.apps.tv.dreamx",
+      "name": "Mode Ambiant (Google TV)",
+      "level": 2,
+      "risk": "info",
+      "category": "Économiseur d'écran",
+      "why": "Diaporama en veille qui consomme de la mémoire.",
+      "loss": "Plus d'économiseur d'écran photos."
+    },
+    {
+      "pkg": "com.google.android.backdrop",
+      "name": "Mode Ambiant (Android TV)",
+      "level": 2,
+      "risk": "info",
+      "category": "Économiseur d'écran",
+      "why": "Diaporama en veille qui consomme de la mémoire.",
+      "loss": "Plus d'économiseur d'écran photos."
+    },
+    {
+      "pkg": "com.android.dreams.basic",
+      "name": "Économiseur d'écran basique",
+      "level": 2,
+      "risk": "info",
+      "category": "Économiseur d'écran",
+      "why": "Économiseur d'écran simple.",
+      "loss": "Plus d'économiseur d'écran par défaut."
+    },
+    {
+      "pkg": "com.google.android.tvrecommendations",
+      "name": "Recommandations TV",
+      "level": 2,
+      "risk": "info",
+      "category": "Publicité / suggestions",
+      "why": "Alimente les suggestions de l'écran d'accueil.",
+      "loss": "Moins de suggestions sur l'accueil."
+    },
+    {
+      "pkg": "com.google.android.youtube.tvmusic",
+      "name": "YouTube Music",
+      "level": 2,
+      "risk": "info",
+      "category": "Applis Google",
+      "why": "Préinstallée, souvent inutilisée.",
+      "loss": "L'appli YouTube Music."
+    },
+    {
+      "pkg": "com.google.android.speech.pumpkin",
+      "name": "Reconnaissance vocale hors ligne",
+      "level": 2,
+      "risk": "info",
+      "category": "Voix",
+      "why": "Modèle vocal chargé en mémoire.",
+      "loss": "Commandes vocales sans connexion."
+    },
+    {
+      "pkg": "com.google.android.tts",
+      "name": "Synthèse vocale Google",
+      "level": 2,
+      "risk": "info",
+      "category": "Accessibilité",
+      "why": "Lecture vocale de texte.",
+      "loss": "Lecture à voix haute (accessibilité)."
+    },
+    {
+      "pkg": "com.google.android.marvin.talkback",
+      "name": "TalkBack",
+      "level": 2,
+      "risk": "info",
+      "category": "Accessibilité",
+      "why": "Lecteur d'écran pour malvoyants.",
+      "loss": "Le lecteur d'écran."
+    },
+    {
+      "pkg": "com.android.managedprovisioning",
+      "name": "Gestion entreprise",
+      "level": 2,
+      "risk": "info",
+      "category": "Inutile sur TV",
+      "why": "Configuration d'appareils d'entreprise.",
+      "loss": "Aucune chez un particulier."
+    },
+    {
+      "pkg": "com.amazon.amazonvideo.livingroom",
+      "name": "Prime Video",
+      "level": 2,
+      "risk": "info",
+      "category": "Applis de streaming",
+      "why": "Préinstallée ; à retirer seulement si tu ne l'utilises pas.",
+      "loss": "L'appli Prime Video."
+    },
+    {
+      "pkg": "com.google.android.katniss",
+      "name": "Google Assistant / recherche vocale",
+      "level": 2,
+      "risk": "warn",
+      "category": "Voix",
+      "why": "Gros consommateur de mémoire.",
+      "loss": "Le bouton micro et la recherche vocale ne marchent plus."
+    },
+    {
+      "pkg": "com.google.android.apps.mediashell",
+      "name": "Chromecast intégré",
+      "level": 2,
+      "risk": "warn",
+      "category": "Diffusion",
+      "why": "Tourne en permanence pour recevoir les diffusions.",
+      "loss": "Impossible de caster depuis un téléphone."
+    },
+    {
+      "pkg": "com.android.providers.contacts",
+      "name": "Stockage des contacts",
+      "level": 2,
+      "risk": "warn",
+      "category": "Inutile sur TV",
+      "why": "Base de contacts inutilisée sur TV.",
+      "loss": "Certaines applis Google peuvent mal réagir."
+    },
+    {
+      "pkg": "com.tcl.exhibit",
+      "name": "Mode démo magasin",
+      "level": 2,
+      "risk": "safe",
+      "category": "Fabricant",
+      "brand": "TCL",
+      "why": "Démonstration en magasin.",
+      "loss": "Aucune."
+    },
+    {
+      "pkg": "com.tcl.factory.view",
+      "name": "Tests usine",
+      "level": 2,
+      "risk": "safe",
+      "category": "Fabricant",
+      "brand": "TCL",
+      "why": "Outil de test en usine.",
+      "loss": "Aucune."
+    },
+    {
+      "pkg": "com.tcl.esticker",
+      "name": "Stickers TCL",
+      "level": 2,
+      "risk": "safe",
+      "category": "Fabricant",
+      "brand": "TCL",
+      "why": "Autocollants promotionnels.",
+      "loss": "Aucune."
+    },
+    {
+      "pkg": "com.tcl.initsetup",
+      "name": "Configuration initiale TCL",
+      "level": 2,
+      "risk": "safe",
+      "category": "Configuration terminée",
+      "brand": "TCL",
+      "why": "Ne sert qu'à la première installation.",
+      "loss": "Aucune."
+    },
+    {
+      "pkg": "com.tcl.ocean.instructions",
+      "name": "Instructions TCL",
+      "level": 2,
+      "risk": "safe",
+      "category": "Fabricant",
+      "brand": "TCL",
+      "why": "Bulles d'aide de première utilisation.",
+      "loss": "Aucune."
+    },
+    {
+      "pkg": "com.tcl.repairguide",
+      "name": "Guide de réparation TCL",
+      "level": 2,
+      "risk": "safe",
+      "category": "Fabricant",
+      "brand": "TCL",
+      "why": "Guide rarement utile.",
+      "loss": "Le guide de dépannage intégré."
+    },
+    {
+      "pkg": "com.tcl.waterfall.overseas",
+      "name": "Flux de contenus TCL",
+      "level": 2,
+      "risk": "safe",
+      "category": "Publicité / suggestions",
+      "brand": "TCL",
+      "why": "Contenus promotionnels.",
+      "loss": "Aucune."
+    },
+    {
+      "pkg": "com.tcl.hearaid",
+      "name": "Aide auditive TCL",
+      "level": 2,
+      "risk": "safe",
+      "category": "Fabricant",
+      "brand": "TCL",
+      "why": "Fonction d'accessibilité audio.",
+      "loss": "L'aide auditive."
+    },
+    {
+      "pkg": "com.tcl.partnercustomizer",
+      "name": "Personnalisation partenaires TCL",
+      "level": 2,
+      "risk": "safe",
+      "category": "Publicité / suggestions",
+      "brand": "TCL",
+      "why": "Contenus et applis partenaires.",
+      "loss": "Aucune."
+    },
+    {
+      "pkg": "com.tcl.gamebar",
+      "name": "Barre de jeu TCL",
+      "level": 2,
+      "risk": "safe",
+      "category": "Fabricant",
+      "brand": "TCL",
+      "why": "Superposition pour les jeux.",
+      "loss": "La barre de jeu."
+    },
+    {
+      "pkg": "com.tcl.channelplus",
+      "name": "Chaînes TCL gratuites",
+      "level": 2,
+      "risk": "safe",
+      "category": "Publicité / suggestions",
+      "brand": "TCL",
+      "why": "Chaînes gratuites financées par la publicité.",
+      "loss": "Ces chaînes."
+    },
+    {
+      "pkg": "com.tcl.interactive",
+      "name": "Contenu interactif TCL",
+      "level": 2,
+      "risk": "safe",
+      "category": "Publicité / suggestions",
+      "brand": "TCL",
+      "why": "Contenus promotionnels.",
+      "loss": "Aucune."
+    },
+    {
+      "pkg": "com.tcl.magiconnectfree",
+      "name": "TCL Magiconnect",
+      "level": 2,
+      "risk": "safe",
+      "category": "Publicité / suggestions",
+      "brand": "TCL",
+      "why": "Contenus promotionnels.",
+      "loss": "Aucune."
+    },
+    {
+      "pkg": "com.tcl.useragreement",
+      "name": "Conditions d'utilisation TCL",
+      "level": 2,
+      "risk": "info",
+      "category": "Configuration terminée",
+      "brand": "TCL",
+      "why": "Déjà acceptées.",
+      "loss": "Aucune."
+    },
+    {
+      "pkg": "com.tcl.UpdatePeripheral",
+      "name": "Mise à jour des accessoires TCL",
+      "level": 2,
+      "risk": "info",
+      "category": "Fabricant",
+      "brand": "TCL",
+      "why": "Met à jour la télécommande et les accessoires.",
+      "loss": "Mises à jour des accessoires TCL."
+    },
+    {
+      "pkg": "com.tcl.ttvs",
+      "name": "Services TV TCL",
+      "level": 2,
+      "risk": "info",
+      "category": "Publicité / suggestions",
+      "brand": "TCL",
+      "why": "Télémétrie et publicités TCL.",
+      "loss": "Certains services en ligne TCL."
+    },
+    {
+      "pkg": "com.tcl.dashboard",
+      "name": "Tableau de bord TCL",
+      "level": 2,
+      "risk": "info",
+      "category": "Publicité / suggestions",
+      "brand": "TCL",
+      "why": "Recommandations et publicités.",
+      "loss": "Le tableau de bord TCL."
+    },
+    {
+      "pkg": "com.tcl.messagebox",
+      "name": "Messages TCL",
+      "level": 2,
+      "risk": "info",
+      "category": "Fabricant",
+      "brand": "TCL",
+      "why": "Notifications du fabricant.",
+      "loss": "Les messages TCL."
+    },
+    {
+      "pkg": "com.tcl.usercenter",
+      "name": "Compte TCL",
+      "level": 2,
+      "risk": "info",
+      "category": "Fabricant",
+      "brand": "TCL",
+      "why": "Compte cloud TCL.",
+      "loss": "Les fonctions liées au compte TCL."
+    },
+    {
+      "pkg": "com.tcl.guard",
+      "name": "Sécurité TCL",
+      "level": 2,
+      "risk": "info",
+      "category": "Fabricant",
+      "brand": "TCL",
+      "why": "Outil de nettoyage du fabricant.",
+      "loss": "L'outil de nettoyage TCL."
+    },
+    {
+      "pkg": "com.tcl.smartalexa",
+      "name": "Alexa (TCL)",
+      "level": 2,
+      "risk": "info",
+      "category": "Voix",
+      "brand": "TCL",
+      "why": "Assistant Alexa intégré.",
+      "loss": "Alexa sur la TV."
+    },
+    {
+      "pkg": "com.tcl.t_solo",
+      "name": "Commande vocale TCL",
+      "level": 2,
+      "risk": "info",
+      "category": "Voix",
+      "brand": "TCL",
+      "why": "Assistant vocal du fabricant.",
+      "loss": "La commande vocale TCL."
+    },
+    {
+      "pkg": "com.droidlogic.FileBrower",
+      "name": "Explorateur de fichiers (boîtier)",
+      "level": 2,
+      "risk": "info",
+      "category": "Fabricant",
+      "why": "Explorateur basique des boîtiers Amlogic.",
+      "loss": "L'explorateur de fichiers intégré."
+    }
   ],
   "protected": [
-    "android", "com.android.systemui", "com.android.tv.settings", "com.android.settings", "com.android.vending",
-    "com.google.android.gms", "com.google.android.gsf", "com.android.shell", "com.android.packageinstaller",
-    "com.google.android.packageinstaller", "com.android.bluetooth", "com.android.externalstorage", "com.android.webview",
-    "com.google.android.webview", "com.android.inputmethod.latin", "com.google.android.leanback.ime",
-    "com.google.android.tv.remote.service", "com.google.android.apps.tv.launcherx", "com.google.android.tvlauncher",
-    "com.google.android.leanbacklauncher", "com.android.tv", "com.google.android.tv", "com.android.server.telecom",
-    "com.android.permissioncontroller", "com.google.android.permissioncontroller", "com.android.keychain",
-    "com.android.certinstaller", "com.android.location.fused", "com.android.se", "com.google.android.ext.services",
-    "com.android.wifi.resources", "com.android.cellbroadcastreceiver"
+    "android",
+    "com.android.systemui",
+    "com.android.tv.settings",
+    "com.android.settings",
+    "com.android.vending",
+    "com.google.android.gms",
+    "com.google.android.gsf",
+    "com.android.shell",
+    "com.android.packageinstaller",
+    "com.google.android.packageinstaller",
+    "com.android.bluetooth",
+    "com.android.externalstorage",
+    "com.android.webview",
+    "com.google.android.webview",
+    "com.android.inputmethod.latin",
+    "com.google.android.leanback.ime",
+    "com.google.android.tv.remote.service",
+    "com.google.android.apps.tv.launcherx",
+    "com.google.android.tvlauncher",
+    "com.google.android.leanbacklauncher",
+    "com.android.tv",
+    "com.google.android.tv",
+    "com.android.server.telecom",
+    "com.android.permissioncontroller",
+    "com.google.android.permissioncontroller",
+    "com.android.keychain",
+    "com.android.certinstaller",
+    "com.android.location.fused",
+    "com.android.se",
+    "com.google.android.ext.services",
+    "com.android.wifi.resources",
+    "com.android.cellbroadcastreceiver"
   ],
   "protectedPrefixes": [
-    "com.android.providers.settings", "com.android.providers.media", "com.android.providers.tv",
-    "com.android.providers.downloads", "com.android.networkstack", "com.android.tethering", "com.google.android.networkstack",
-    "com.android.wifi", "com.google.android.wifi", "com.android.overlay", "com.google.android.overlay", "com.android.internal",
-    "com.android.adservices", "com.google.android.adservices", "com.android.media", "com.google.android.media",
-    "com.android.connectivity", "com.google.android.connectivity", "com.android.mtp", "com.android.documentsui",
+    "com.android.providers.settings",
+    "com.android.providers.media",
+    "com.android.providers.tv",
+    "com.android.providers.downloads",
+    "com.android.networkstack",
+    "com.android.tethering",
+    "com.google.android.networkstack",
+    "com.android.wifi",
+    "com.google.android.wifi",
+    "com.android.overlay",
+    "com.google.android.overlay",
+    "com.android.internal",
+    "com.android.adservices",
+    "com.google.android.adservices",
+    "com.android.media",
+    "com.google.android.media",
+    "com.android.connectivity",
+    "com.google.android.connectivity",
+    "com.android.mtp",
+    "com.android.documentsui",
     "com.google.android.documentsui"
   ],
   "launchers": [
-    { "pkg": "com.spocky.projengmenu", "name": "Projectivy Launcher", "why": "Très personnalisable, léger, sans publicité. Le plus populaire.", "free": true },
-    { "pkg": "me.efesser.flauncher", "name": "FLauncher", "why": "Minimaliste et open source, idéal pour les petites configurations.", "free": true },
-    { "pkg": "ca.dstudio.atvlauncher.free", "name": "ATV Launcher", "why": "Simple, grandes tuiles, proche d'Android TV d'origine.", "free": true }
+    {
+      "pkg": "com.spocky.projengmenu",
+      "name": "Projectivy Launcher",
+      "price": "Gratuit (options payantes)",
+      "rating": 4.6,
+      "why": "Le plus populaire : très personnalisable (fonds animés, rangées, raccourcis), léger et sans publicité.",
+      "shots": [
+        "https://play-lh.googleusercontent.com/y1mcHDxW3xwDwIjIPY6Et7W6LRcqdNhyOlqfLC9Vn2Qz9DpAkYC8jH-thQqeyZoReU2fja1-aAaenBobmHseqQ=w960-h540",
+        "https://play-lh.googleusercontent.com/U1hhfK4bw9Q9C-qbj1AfReA-lpDqrovDLZxfl99V1UdBnCcijmNCXEcj9MFDkC00eTF6mt2-b072VYjbUsGJwA=w960-h540",
+        "https://play-lh.googleusercontent.com/kFbeAB7U457y0FySh6NEwHmzHN66n9TGIR5AXGLNYzYXARXSv2RZU39kV1rE7sNJ98r-RJT2Xc54E6gUnOpo9KM=w960-h540"
+      ]
+    },
+    {
+      "pkg": "com.overdevs.at4k",
+      "name": "AT4K Launcher",
+      "price": "",
+      "rating": 4.7,
+      "why": "Proche de Google TV : grandes affiches des films et séries à la une, mais sans publicité ni recommandations imposées.",
+      "shots": [
+        "https://play-lh.googleusercontent.com/hzO454Yav6E-oCTiF7NA-GCPWdHW9RSqL5eI85h9nq3BHJ4iQim9y1X9Sw4a20rW_nG9jnIAWaz6uXMyMYeU=w960-h540",
+        "https://play-lh.googleusercontent.com/wrEIEgUynLKax7iclmECu--RqPvrDQqXQ4_kiweuRFSb-my0rHBslAAxVdQaqHIRgL8cGZYvlEmlrOZO1GuWK7k=w960-h540",
+        "https://play-lh.googleusercontent.com/mLDZWAcbss9bN14irxrsjWQ4E0_svV3erja0mQEVOjAD2ccQoKDLyLOO2GfvTrmVs-7E4lc3ojo9Hbdv1PYGVUs=w960-h540"
+      ]
+    },
+    {
+      "pkg": "com.overdevs.kyulauncher",
+      "name": "Kyu Launcher",
+      "price": "",
+      "rating": null,
+      "why": "Menu latéral clair (Regarder, Applis, Médias, Jeux) et accès direct aux entrées HDMI.",
+      "shots": [
+        "https://play-lh.googleusercontent.com/NYxw42vzbNCdIK5XJ_ZeICiISEn08FDarYIOqXur2jVcPSKYMkOztMV5tDa_zbQoztY85UvYNYuAwo9H6onK-g=w960-h540",
+        "https://play-lh.googleusercontent.com/SWxxp5b9O6l9I8z9JXcjeaeR5Qnmdc_NrN1VmUvz7B763plGJ6dd0lJHPoU4FPgMtya9XEs889TlqhDf5JQl=w960-h540",
+        "https://play-lh.googleusercontent.com/tni0pCBjAd1w0Yz0qxzHz_u_nqeAv7J4k_0Com1-fHwID5YBKGpG7ahZYXwmuRFuD47qBUFuA3R_qo1z4deb3w=w960-h540"
+      ]
+    },
+    {
+      "pkg": "me.efesser.flauncher",
+      "name": "FLauncher",
+      "price": "Gratuit, open source",
+      "rating": 4.1,
+      "why": "Minimaliste : juste tes applis rangées en catégories, idéal pour les petites configurations.",
+      "shots": [
+        "https://play-lh.googleusercontent.com/AbDBv8VgcEWzSrQExmhk8uhxm-IEMCMQZEp_YIy2eMRYzDTcCQ5jqVsA9Sx9_PF-Y6GPvqipY7nG0TtwvLMJU_Y=w960-h540",
+        "https://play-lh.googleusercontent.com/JVtj5nM9WrZxXSoYPXLjh1kcyl4FoW7KjCAA9VoZHJFGWiEHM_w_ghfY9QumzBbmlnVQiUVdQBlEg7H6APMQ2w=w960-h540",
+        "https://play-lh.googleusercontent.com/40kD3AL-w4uAC7mgen_0SzKXNIsC9qsL9bw_tmMqa2OYJ1vkFL2NKgbPJnOp2RNR5Y7O_oY0yFb3zKdaVr2k=w960-h540"
+      ]
+    },
+    {
+      "pkg": "com.kfaraj.launcher",
+      "name": "Lanceur d'applications",
+      "price": "Gratuit",
+      "rating": 4.1,
+      "why": "Très simple et léger, dans le style d'Android TV d'origine, avec recherche intégrée.",
+      "shots": [
+        "https://play-lh.googleusercontent.com/Zm1zOz0Q8iJ9ysqbW0j3ghQHeGa7iYbiHm7V8-9a1bf2AgKkypD7acahXkZlMOYF1mPnlroXQF9Iy8Wq7zLWIw=w960-h540",
+        "https://play-lh.googleusercontent.com/37Wnzloyzt6RLaIg3grcTf_TPOjnSMYr3wGRMYkoe9MS_F0443jDqYK1eHj5PRyUAmQO6MVMg7_Tp7A1e3IavQ=w960-h540",
+        "https://play-lh.googleusercontent.com/GZTAMtFh2u7EkIrpcJ_0aDule_TH0w_IXcVYw85zRgpsGB3CAQ7TIrJm-3k9hy280jUJTBACV6c6ndgpvuTZ=w960-h540"
+      ]
+    },
+    {
+      "pkg": "ca.dstudio.atvlauncher.pro",
+      "name": "ATV Launcher Pro",
+      "price": "Payant",
+      "rating": 3.6,
+      "why": "Grandes tuiles personnalisables (couleurs, fonds, dossiers), rapide.",
+      "shots": [
+        "https://play-lh.googleusercontent.com/eKkIBC31kKQMiclT_tSQXrRCayDT3AsR2HufY0U3AK04ev1p0ntk3KyrTuuUrJWW3eGza_oofK8gnD3Oxo2ipDA=w960-h540",
+        "https://play-lh.googleusercontent.com/UG_BLE3MkHRUb5eQ19KNOTJXDwJ3Y7C0zeMQk1Qu8ojHVPp3UqFJkE4f-1uJvmbH9tQ2Nj8knB-KiKJOrU0j=w960-h540",
+        "https://play-lh.googleusercontent.com/aOSLUBiVuRFLfsJkPKogC7TOgXJTPrXXAlvn-DzRaZNM4TqauYPgvroMIXIPiFg_JjHmrtetKuiDeHU9LnjCCG0=w960-h540"
+      ]
+    }
   ]
 }
