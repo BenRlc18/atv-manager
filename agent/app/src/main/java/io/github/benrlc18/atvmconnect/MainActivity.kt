@@ -40,6 +40,9 @@ class MainActivity : Activity() {
     private lateinit var adbLine: TextView
     private lateinit var hint: TextView
     private lateinit var openDev: Button
+    private lateinit var recheckButton: Button
+    private lateinit var lastCheck: TextView
+    private var checkingUntil = 0L
     private lateinit var remoteToggle: Button
     private lateinit var remoteServer: EditText
 
@@ -70,6 +73,14 @@ class MainActivity : Activity() {
         adbLine = findViewById(R.id.adb_line)
         hint = findViewById(R.id.hint)
         openDev = findViewById(R.id.open_dev)
+        recheckButton = findViewById(R.id.recheck)
+        lastCheck = findViewById(R.id.last_check)
+        // « Vérifier la connexion » : reconnexion + nouveau test du débogage, bilan affiché quelques secondes après
+        recheckButton.setOnClickListener {
+            checkingUntil = System.currentTimeMillis() + 6_000
+            AgentService.recheck(this)
+            refresh()
+        }
         remoteToggle = findViewById(R.id.remote_toggle)
         remoteServer = findViewById(R.id.remote_server)
         // Version générique (sans serveur intégré) : adresse saisissable seulement sur demande
@@ -180,6 +191,22 @@ class MainActivity : Activity() {
             else -> "○ Vérification du débogage…"
         }
         openDev.visibility = if (s.adb == "unavailable") View.VISIBLE else View.GONE
+
+        val checking = System.currentTimeMillis() < checkingUntil
+        recheckButton.isEnabled = !checking
+        recheckButton.setText(if (checking) R.string.rechecking else R.string.recheck)
+        if (s.lastCheck > 0 && !checking) {
+            val time = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.FRANCE).format(java.util.Date(s.lastCheck))
+            lastCheck.text = when {
+                s.server == "ok" && s.adb == "ok" -> "Vérifié à $time : tout fonctionne, la TV est prête à être optimisée."
+                s.server != "ok" -> "Vérifié à $time : ATV Manager est injoignable. Vérifie la connexion internet de la TV ; un nouvel essai est fait automatiquement."
+                else -> "Vérifié à $time : la connexion au serveur est bonne, mais le débogage n'est pas encore autorisé (voir le message ci-dessus)."
+            }
+            lastCheck.visibility = View.VISIBLE
+        } else if (checking) {
+            lastCheck.text = getString(R.string.rechecking)
+            lastCheck.visibility = View.VISIBLE
+        }
         hint.text = when {
             s.adb != "ok" && s.adbMessage.isNotEmpty() -> s.adbMessage
             s.server == "ok" && s.adb == "ok" -> "Tout est prêt. Tu peux fermer cette appli : la TV reste reliée à ATV Manager, même après un redémarrage."

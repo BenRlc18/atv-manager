@@ -153,9 +153,21 @@
                     style="@style/Body"
                     android:layout_marginTop="14dp" />
 
+                <TextView
+                    android:id="@+id/last_check"
+                    style="@style/Body"
+                    android:layout_marginTop="14dp"
+                    android:visibility="gone" />
+
+                <Button
+                    android:id="@+id/recheck"
+                    style="@style/Primary"
+                    android:text="@string/recheck" />
+
                 <Button
                     android:id="@+id/open_dev"
-                    style="@style/Primary"
+                    style="@style/Secondary"
+                    android:layout_marginTop="14dp"
                     android:text="@string/adb_open"
                     android:visibility="gone" />
 

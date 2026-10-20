@@ -17,6 +17,8 @@
     <string name="adb_text">Le bouton ci-dessous ouvre les « Options pour les développeurs ». Active « Débogage USB », et aussi « Débogage réseau » ou « Débogage ADB via le réseau » s\'il existe. Reviens ensuite ici avec la touche Retour.</string>
     <string name="adb_open">Ouvrir les options pour les développeurs</string>
     <string name="pair_step">Étape 3 sur 3</string>
+    <string name="recheck">Vérifier la connexion</string>
+    <string name="rechecking">Vérification en cours…</string>
     <string name="dev_text_fire">Le bouton ci-dessous ouvre les paramètres. Va dans « Ma Fire TV » › « À propos », place-toi sur le nom de ta Fire TV (par exemple « Fire TV Stick 4K ») et appuie 7 fois sur OK jusqu\'au message « Vous êtes maintenant développeur ». Reviens ensuite ici avec la touche Retour.</string>
     <string name="adb_text_fire">Le bouton ci-dessous ouvre les paramètres. Va dans « Ma Fire TV » › « Options pour les développeurs » et active « Débogage ADB ». Reviens ensuite ici avec la touche Retour : une fenêtre « Autoriser le débogage ? » apparaîtra, accepte-la.</string>
     <string name="remote_toggle">Mon serveur ATV Manager est ailleurs</string>

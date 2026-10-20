@@ -74,7 +74,23 @@ class AgentService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (!prefs.paired) { stopSelf(); return START_NOT_STICKY }
+        if (intent?.action == ACTION_RECHECK) recheck()
         return START_STICKY
+    }
+
+    // Vérification demandée depuis l'écran : reconnexion immédiate si besoin + nouveau test du débogage
+    private fun recheck() {
+        status = status.copy(lastCheck = System.currentTimeMillis())
+        if (status.server != "ok") {
+            retryRunnable?.let { main.removeCallbacks(it) }
+            retryDelay = 5_000L
+            socket?.cancel()
+            connect()
+        } else {
+            sendStatus()
+        }
+        requestAuth()
+        publish()
     }
 
     override fun onDestroy() {
@@ -102,6 +118,7 @@ class AgentService : Service() {
         val url = prefs.server.replaceFirst("https://", "wss://").replaceFirst("http://", "ws://") + "/api/agent/ws"
         status = status.copy(server = "connexion")
         publish()
+        val gen = ++wsGen
         socket = client.newWebSocket(Request.Builder().url(url).build(), object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 val hello = JSONObject()
@@ -146,9 +163,10 @@ class AgentService : Service() {
                 }
             }
 
-            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) = retry("Serveur injoignable, nouvel essai bientôt.")
+            // Les événements d'une ancienne connexion (remplacée par « Vérifier la connexion ») sont ignorés
+            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) { if (gen == wsGen) retry("Serveur injoignable, nouvel essai bientôt.") }
 
-            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) = retry("Connexion fermée, nouvel essai bientôt.")
+            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) { if (gen == wsGen) retry("Connexion fermée, nouvel essai bientôt.") }
         })
     }
 
@@ -156,9 +174,12 @@ class AgentService : Service() {
         if (stopped || !prefs.paired) return
         status = status.copy(server = "offline", message = msg)
         publish()
-        main.postDelayed({ connect() }, retryDelay)
+        retryRunnable?.let { main.removeCallbacks(it) }
+        retryRunnable = Runnable { connect() }.also { main.postDelayed(it, retryDelay) }
         retryDelay = (retryDelay * 2).coerceAtMost(60_000L)
     }
+    private var retryRunnable: Runnable? = null
+    @Volatile private var wsGen = 0
 
     private fun sendStatus() {
         socket?.send(JSONObject().put("type", "status").put("adb", adbState()).put("message", adb.message).toString())
@@ -198,7 +219,7 @@ class AgentService : Service() {
     }
 
     /** État affiché par l'écran principal. */
-    data class Status(val server: String = "stopped", val adb: String = "unknown", val adbMessage: String = "", val message: String = "")
+    data class Status(val server: String = "stopped", val adb: String = "unknown", val adbMessage: String = "", val message: String = "", val lastCheck: Long = 0L)
 
     companion object {
         private const val CHANNEL = "atvm"
@@ -212,6 +233,14 @@ class AgentService : Service() {
 
         fun stop(context: Context) {
             context.stopService(Intent(context, AgentService::class.java))
+        }
+
+        const val ACTION_RECHECK = "io.github.benrlc18.atvmconnect.RECHECK"
+
+        /** Bouton « Vérifier la connexion » : reconnecte et refait le test du débogage. */
+        fun recheck(context: Context) {
+            val i = Intent(context, AgentService::class.java).setAction(ACTION_RECHECK)
+            if (Build.VERSION.SDK_INT >= 26) context.startForegroundService(i) else context.startService(i)
         }
     }
 }
