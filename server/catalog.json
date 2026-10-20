@@ -507,7 +507,10 @@
     "com.android.se",
     "com.google.android.ext.services",
     "com.android.wifi.resources",
-    "com.android.cellbroadcastreceiver"
+    "com.android.cellbroadcastreceiver",
+    "com.tailscale.ipn",
+    "io.github.benrlc18.atvmconnect",
+    "com.google.android.tv.frameworkpackagestubs"
   ],
   "protectedPrefixes": [
     "com.android.providers.settings",

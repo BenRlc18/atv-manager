@@ -38,6 +38,23 @@ async function memoryByPackage(target) {
   return mem;
 }
 
+// Réseaux Wi-Fi enregistrés et applis qui les ont créés. Android efface un réseau quand l'appli qui l'a
+// enregistré (assistant d'installation Google ou du fabricant) est retirée : la TV perd le Wi-Fi et il faut
+// retaper le mot de passe. Ces applis ne sont donc jamais désactivées.
+async function wifiInfo(target) {
+  const r = await A.shell(target, 'dumpsys wifi | grep -E "cname=|creatorName="', { timeout: 15000 });
+  const owners = new Set();
+  let networks = 0;
+  for (const line of r.out.split(/\r?\n/)) {
+    if (/cname=|creatorName=/.test(line)) networks++;
+    for (const m of line.matchAll(/(?:cname|lname|creatorName|lastUpdateName)=([\w.]+)/g)) {
+      if (m[1].includes('.') && !m[1].startsWith('android.uid')) owners.add(m[1]);
+    }
+  }
+  return { ok: r.ok, owners, networks };
+}
+const WIFI_WHY = "A enregistré le réseau Wi-Fi de la TV : la retirer effacerait le Wi-Fi (mot de passe à retaper).";
+
 async function ramFreeMb(target) {
   const r = await A.shell(target, 'grep "^MemAvailable:" /proc/meminfo', { timeout: 8000 });
   const m = r.out.match(/(\d+)/);
@@ -86,9 +103,10 @@ const LEVELS = {
 // Aperçu de ce que ferait un niveau
 async function plan(target, dev, level, mode = 'recommended') {
   level = Math.min(3, Math.max(1, Number(level) || 1));
-  const [pk, mem, settings, ramFree] = await Promise.all([listPackages(target), memoryByPackage(target), getSettings(target), ramFreeMb(target)]);
+  const [pk, mem, settings, ramFree, wifi] = await Promise.all([listPackages(target), memoryByPackage(target), getSettings(target), ramFreeMb(target), wifiInfo(target)]);
   const installed = new Set([...pk.system, ...pk.user]);
   const memMb = (pkg) => Math.round(((mem.get(pkg) || 0) / 1024) * 10) / 10;
+  const wifiLock = (a) => (wifi.owners.has(a.pkg) && !a.disabled ? { ...a, risk: 'protected', why: WIFI_WHY, checked: false, locked: true } : a);
 
   const animSkipped = isFireTv(dev);
   const settingsChanges = animSkipped ? [] : ANIMATION_KEYS.map((k) => ({ key: k, from: settings[k] && settings[k] !== 'null' ? settings[k] : '1.0', to: ANIMATION_TARGET }))
@@ -99,24 +117,24 @@ async function plan(target, dev, level, mode = 'recommended') {
     if (!installed.has(meta.pkg)) continue;
     if (meta.level > level) continue;
     const disabled = pk.disabled.has(meta.pkg);
-    apps.push({
+    apps.push(wifiLock({
       ...meta,
       memMb: memMb(meta.pkg),
       disabled,
       checked: !disabled && (meta.level === 1 || (mode === 'recommended' && meta.risk === 'safe')),
       locked: false,
-    });
+    }));
   }
   if (level >= 2 && mode === 'manual') {
     for (const pkg of [...installed].sort()) {
       if (byPkg.has(pkg)) continue;
       const prot = isProtected(pkg);
-      apps.push({
+      apps.push(wifiLock({
         pkg, name: pkg, level: 2, risk: prot ? 'protected' : 'unknown', category: pk.user.has(pkg) ? 'Applis installées' : 'Autres applis système',
         why: prot ? 'Essentielle au fonctionnement de la TV.' : "Pas encore dans notre catalogue : à ne retirer que si tu sais ce qu'elle fait.",
         loss: prot ? '' : 'Inconnue.',
         memMb: memMb(pkg), disabled: pk.disabled.has(pkg), checked: false, locked: prot, user: pk.user.has(pkg),
-      });
+      }));
     }
   }
 
@@ -157,16 +175,18 @@ async function apply(target, dev, body) {
   const level = Math.min(3, Math.max(1, Number(body.level) || 1));
   const wanted = Array.isArray(body.apps) ? [...new Set(body.apps.map(String))] : [];
   return withLock(dev.id, async () => {
-    const pk = await listPackages(target);
+    const [pk, wifi] = await Promise.all([listPackages(target), wifiInfo(target)]);
     const installed = new Set([...pk.system, ...pk.user]);
 
     // Validation avant toute modification
     const refused = [];
     const toDisable = [];
+    const wifiKept = [];
     for (const pkg of wanted) {
       const meta = byPkg.get(pkg);
       if (!installed.has(pkg)) refused.push({ pkg, reason: 'non installée' });
       else if (pk.disabled.has(pkg)) continue;
+      else if (wifi.owners.has(pkg)) wifiKept.push(pkg); // jamais : la TV perdrait son Wi-Fi
       else if (isProtected(pkg) && !meta) refused.push({ pkg, reason: 'protégée' });
       else if (meta && meta.level > level) refused.push({ pkg, reason: `réservée au niveau ${meta.level}` });
       else if (!meta && level < 2) refused.push({ pkg, reason: 'réservée au niveau 2' });
@@ -197,11 +217,16 @@ async function apply(target, dev, body) {
     log(kill.ok, kill.ok ? 'Applis en arrière-plan fermées' : `Fermeture des applis : ${kill.err || 'échec'}`);
 
     // 3. Applis
+    for (const pkg of wifiKept) log(true, `${byPkg.get(pkg)?.name || pkg} conservée : elle a enregistré le Wi-Fi de la TV`);
     for (const pkg of toDisable) {
       const r = await A.shell(target, `pm disable-user --user 0 ${pkg}`, { timeout: 20000 });
       const ok = /disabled/.test(r.out);
       if (ok) snap.apps.push(pkg);
       log(ok, `${byPkg.get(pkg)?.name || pkg} ${ok ? 'désactivée' : `: ${r.err || r.out || 'échec'}`}`);
+    }
+    if (toDisable.length && wifi.ok && wifi.networks) {
+      const after = await wifiInfo(target);
+      if (after.ok) log(after.networks >= wifi.networks, after.networks >= wifi.networks ? 'Wi-Fi : réseaux enregistrés conservés' : `Wi-Fi : ${wifi.networks - after.networks} réseau(x) enregistré(s) perdu(s), à ressaisir dans les paramètres`);
     }
 
     // 4. Lanceur
