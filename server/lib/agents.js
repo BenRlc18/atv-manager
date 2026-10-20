@@ -128,6 +128,14 @@ function pair(code, name, ip) {
   const id = crypto.randomBytes(8).toString('hex');
   const token = crypto.randomBytes(32).toString('hex');
   const all = agents();
+  // Une nouvelle association de la même TV par la même personne remplace les tentatives restées en attente
+  const label = String(name || '').slice(0, 60);
+  for (const old of Object.values(all)) {
+    if (old.userId === p.userId && !old.deviceId && old.name === label) {
+      delete all[old.id];
+      online.get(old.id)?.conn.close(4001);
+    }
+  }
   all[id] = { id, tokenHash: sha256(token), userId: p.userId, name: String(name || '').slice(0, 60), createdAt: new Date().toISOString(), deviceId: null };
   saveAgents(all);
   return { agentId: id, token };
@@ -213,4 +221,12 @@ function handleUpgrade(req, socket) {
 // Garde les connexions ouvertes à travers les proxys (NPM coupe après 60 s d'inactivité)
 setInterval(() => { for (const o of online.values()) o.conn.ping(); }, 25000).unref();
 
-module.exports = { handleUpgrade, createPairCode, pair, revoke, call, isOnline, status, agents, saveAgents, setReadyHandler };
+// Associations pas encore abouties (TV associée mais débogage pas encore autorisé)
+function pending() {
+  return Object.values(agents())
+    .filter((a) => !a.deviceId)
+    .map((a) => ({ id: a.id, name: a.name || 'TV', userId: a.userId, createdAt: a.createdAt, ...status(a.id) }))
+    .sort((x, y) => String(y.createdAt).localeCompare(String(x.createdAt)));
+}
+
+module.exports = { handleUpgrade, createPairCode, pair, revoke, call, isOnline, status, agents, saveAgents, setReadyHandler, pending };

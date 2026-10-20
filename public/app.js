@@ -134,7 +134,7 @@ function promptBox({ title, label, value = '', placeholder = '' }) {
 
 async function loadState() {
   const st = await api('/api/state');
-  Object.assign(S, { features: st.features || {}, user: st.user, devices: st.devices, settings: st.settings || S.settings, levels: st.levels, version: st.version, subnets: st.subnets, loaded: true });
+  Object.assign(S, { features: st.features || {}, pendingAgents: st.pendingAgents || [], user: st.user, devices: st.devices, settings: st.settings || S.settings, levels: st.levels, version: st.version, subnets: st.subnets, loaded: true });
   drawChrome();
 }
 
@@ -353,7 +353,7 @@ function drawDevices() {
   if (!isAdmin()) return drawSharedDevices();
   const ts = S.settings.tailscale.enabled;
   const info = S.scanInfo;
-  const rows = [...S.pending.map(pendingRow), ...S.devices.map(deviceRow)];
+  const rows = [...S.pending.map(pendingRow), ...S.pendingAgents.map(pendingAgentRow), ...S.devices.map(deviceRow)];
   $app.innerHTML = `
     <div class="page-head">
       <div class="lead">
@@ -429,7 +429,7 @@ function drawSharedDevices() {
   $app.innerHTML = `
     <div class="page-head"><div class="lead"><h1>Mes TV</h1><p class="t2 sm">${S.devices.length ? plural(S.devices.length, 'TV') : 'Aucune TV pour le moment'}</p></div>
       <a class="btn primary" href="#/add">${ic('plus')}Ajouter ma TV</a></div>
-    ${S.devices.length ? `<div class="panel"><ul class="list">${S.devices.map(deviceRow).join('')}</ul></div>` : `
+    ${S.devices.length || S.pendingAgents.length ? `<div class="panel"><ul class="list">${[...S.pendingAgents.map(pendingAgentRow), ...S.devices.map(deviceRow)].join('')}</ul></div>` : `
       <div class="panel empty">
         <h2>Ajoute ta TV</h2>
         <p>Installe l'appli ATVM Connect sur ta TV : elle se relie à ce site, depuis chez toi, sans rien configurer sur ta box. Compte 5 minutes.</p>
@@ -488,7 +488,7 @@ function deviceRow(d) {
       <div class="ico">${ic('tv')}</div>
       <div style="min-width:0">
         <div class="name">${esc(displayName(d))}</div>
-        <div class="meta">${d.label || d.deviceName ? `<span>${esc(model)}</span>` : ''}${d.android ? `<span>Android ${esc(d.android)}</span>` : ''}${viaAgent(d) ? '<span>via ATVM Connect</span>' : `<span class="mono">${esc(d.host)}</span>${d.remote ? '<span>via Tailscale</span>' : ''}`}</div>
+        <div class="meta">${d.label || d.deviceName ? `<span>${esc(model)}</span>` : ''}${d.android ? `<span>Android ${esc(d.android)}</span>` : ''}${viaAgent(d) ? '<span>via ATVM Connect</span>' : `<span class="mono">${esc(d.host)}</span>${d.remote ? '<span>via Tailscale</span>' : ''}`}${d.userNames && d.userNames.length ? `<span>${viaAgent(d) ? 'Ajoutée par' : 'Partagée avec'} ${esc(d.userNames.join(', '))}</span>` : ''}</div>
       </div>
       <div class="side">
         <span class="status"><span class="dot ${viaAgent(d) ? agentState(d)[0] : fresh ? 'ok' : ''}"></span>${esc(viaAgent(d) ? agentState(d)[1] : ago(d.lastSeen))}</span>
@@ -514,6 +514,31 @@ function pendingRow(p) {
       <button class="btn sm" data-retry="${esc(addr)}">${ic('refresh')}Réessayer</button>
     </li>`;
 }
+
+function pendingAgentRow(a) {
+  const st = !a.online ? ['', 'TV hors ligne'] : a.adb === 'waiting' ? ['note', 'fenêtre d’autorisation affichée sur la TV'] : a.adb === 'unavailable' ? ['bad', 'débogage désactivé sur la TV'] : ['note', 'débogage à autoriser sur la TV'];
+  return `
+    <li class="pending-row">
+      <div class="ico">${ic('tv')}</div>
+      <div style="min-width:0">
+        <div class="name"><b>${esc(a.name)}</b> · <span class="t2">en attente${a.userName && isAdmin() ? ` · associée par ${esc(a.userName)}` : ''}</span></div>
+        <p class="sm t2"><span class="status"><span class="dot ${st[0]}"></span>${esc(st[1])}</span>${a.message ? ` — ${esc(a.message)}` : ''}</p>
+      </div>
+      <button class="btn sm quiet" data-revoke-agent="${esc(a.id)}">Retirer</button>
+    </li>`;
+}
+
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-revoke-agent]');
+  if (!b) return;
+  if (!(await confirmBox({ title: 'Retirer cette association ?', html: "<p>La TV devra être associée à nouveau avec un code depuis ATVM Connect.</p>", confirm: 'Retirer', danger: true }))) return;
+  try {
+    await api(`/api/agent/${encodeURIComponent(b.dataset.revokeAgent)}/revoke`, { method: 'POST' });
+    await loadState();
+    if (currentTab === 'devices' && !currentDevice) drawDevices();
+    toast('Association retirée.');
+  } catch (err) { toast(err.message, 'error'); }
+});
 
 function emptyPanel() {
   return `

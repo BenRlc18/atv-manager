@@ -151,9 +151,23 @@ route('GET', '/api/state', 'user', async (ctx) => {
     settings: admin ? publicSettings(store.settings()) : null,
     features: { tailscale: !!(store.settings().tailscale || {}).enabled, downloaderCode: String(process.env.DOWNLOADER_CODE || store.settings().downloaderCode || '').replace(/\D/g, '') },
     levels: O.LEVELS,
-    devices: visibleDevices(ctx.user).map((d) => publicDevice(d, admin)).sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0)),
+    devices: visibleDevices(ctx.user).map((d) => ({ ...publicDevice(d, admin), ...(admin ? { userNames: (d.users || []).map(userName).filter(Boolean) } : {}) }))
+      .sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0)),
+    // TV associées avec ATVM Connect mais pas encore autorisées : toutes pour l'administrateur, les siennes pour un invité
+    pendingAgents: AG.pending().filter((a) => admin || a.userId === ctx.user.id).map((a) => ({ ...a, userName: userName(a.userId) })),
     subnets: admin ? D.localSubnets() : [],
   };
+});
+
+const userName = (id) => (auth.listUsers().find((u) => u.id === id) || {}).name || '';
+
+// Retirer une association en attente : l'administrateur, ou l'invité qui l'a faite
+route('POST', '/api/agent/:id/revoke', 'user', async (ctx, p) => {
+  const id = decodeURIComponent(p.id);
+  const a = AG.agents()[id];
+  if (!a || (!isAdmin(ctx.user) && a.userId !== ctx.user.id)) throw fail('Association introuvable.', 404);
+  AG.revoke(id);
+  return { ok: true };
 });
 
 // ---------- Appareils (recherche et ajout : administrateur)
