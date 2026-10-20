@@ -160,6 +160,12 @@
                     android:visibility="gone" />
 
                 <Button
+                    android:id="@+id/ask_auth"
+                    style="@style/Primary"
+                    android:text="@string/ask_auth"
+                    android:visibility="gone" />
+
+                <Button
                     android:id="@+id/recheck"
                     style="@style/Primary"
                     android:text="@string/recheck" />

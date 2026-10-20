@@ -43,6 +43,8 @@ class MainActivity : Activity() {
     private lateinit var recheckButton: Button
     private lateinit var lastCheck: TextView
     private var checkingUntil = 0L
+    private lateinit var askAuthButton: Button
+    private var askedAt = 0L
     private lateinit var remoteToggle: Button
     private lateinit var remoteServer: EditText
 
@@ -74,6 +76,13 @@ class MainActivity : Activity() {
         hint = findViewById(R.id.hint)
         openDev = findViewById(R.id.open_dev)
         recheckButton = findViewById(R.id.recheck)
+        askAuthButton = findViewById(R.id.ask_auth)
+        // « Afficher la fenêtre d'autorisation » : relance la demande, la fenêtre apparaît sur la TV
+        askAuthButton.setOnClickListener {
+            askedAt = System.currentTimeMillis()
+            AgentService.askAuth(this)
+            refresh()
+        }
         lastCheck = findViewById(R.id.last_check)
         // « Vérifier la connexion » : reconnexion + nouveau test du débogage, bilan affiché quelques secondes après
         recheckButton.setOnClickListener {
@@ -192,6 +201,9 @@ class MainActivity : Activity() {
         }
         openDev.visibility = if (s.adb == "unavailable") View.VISIBLE else View.GONE
 
+        // Bouton d'autorisation : seulement tant que le débogage n'est pas autorisé (et que le port est ouvert)
+        askAuthButton.visibility = if (s.adb != "ok" && s.adb != "unavailable") View.VISIBLE else View.GONE
+
         val checking = System.currentTimeMillis() < checkingUntil
         recheckButton.isEnabled = !checking
         recheckButton.setText(if (checking) R.string.rechecking else R.string.recheck)
@@ -208,6 +220,7 @@ class MainActivity : Activity() {
             lastCheck.visibility = View.VISIBLE
         }
         hint.text = when {
+            s.adb != "ok" && System.currentTimeMillis() - askedAt < 120_000 -> getString(R.string.asking_auth)
             s.adb != "ok" && s.adbMessage.isNotEmpty() -> s.adbMessage
             s.server == "ok" && s.adb == "ok" -> "Tout est prêt. Tu peux fermer cette appli : la TV reste reliée à ATV Manager, même après un redémarrage."
             else -> s.message

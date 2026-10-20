@@ -112,6 +112,13 @@ class LocalAdb(context: Context) {
         dadb = null
     }
 
+    /** Abandonne la tentative en cours (la fenêtre affichée se ferme) pour en relancer une neuve. */
+    fun cancelAttempt() {
+        reset()
+    }
+
+    val isAuthorizing: Boolean get() = authorizing.get()
+
     fun close() {
         reset()
         worker.shutdownNow()

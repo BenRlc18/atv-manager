@@ -56,6 +56,22 @@ class AgentService : Service() {
     private val authExec = Executors.newSingleThreadExecutor()
     private val authPending = AtomicBoolean(false)
 
+    // Bouton « Afficher la fenêtre d'autorisation » : on coupe la tentative en cours et on en relance une
+    // dès qu'elle est terminée, ce qui fait (ré)apparaître la fenêtre sur la TV
+    private fun askAuth() {
+        if (adb.state == LocalAdb.State.OK) { recheck(); return }
+        adb.cancelAttempt()
+        var tries = 0
+        val relaunch = object : Runnable {
+            override fun run() {
+                if (stopped) return
+                if (adb.isAuthorizing && tries++ < 20) { main.postDelayed(this, 250); return }
+                requestAuth()
+            }
+        }
+        main.postDelayed(relaunch, 300)
+    }
+
     private fun requestAuth() {
         if (!authPending.compareAndSet(false, true)) return
         authExec.execute {
@@ -75,6 +91,7 @@ class AgentService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (!prefs.paired) { stopSelf(); return START_NOT_STICKY }
         if (intent?.action == ACTION_RECHECK) recheck()
+        if (intent?.action == ACTION_ASK_AUTH) askAuth()
         return START_STICKY
     }
 
@@ -236,6 +253,13 @@ class AgentService : Service() {
         }
 
         const val ACTION_RECHECK = "io.github.benrlc18.atvmconnect.RECHECK"
+        const val ACTION_ASK_AUTH = "io.github.benrlc18.atvmconnect.ASK_AUTH"
+
+        /** Fait apparaître la fenêtre « Autoriser le débogage ? » sur la TV. */
+        fun askAuth(context: Context) {
+            val i = Intent(context, AgentService::class.java).setAction(ACTION_ASK_AUTH)
+            if (Build.VERSION.SDK_INT >= 26) context.startForegroundService(i) else context.startService(i)
+        }
 
         /** Bouton « Vérifier la connexion » : reconnecte et refait le test du débogage. */
         fun recheck(context: Context) {
