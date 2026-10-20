@@ -167,6 +167,9 @@ function call(agentId, cmd, timeout = 15000) {
   });
 }
 
+// Journal (docker logs atv-manager) : une ligne par changement d'état d'une TV ATVM Connect
+const log = (a, text) => console.log(`[ATVM Connect] ${(a && a.name) || 'TV'} (${(a && a.id) || '?'}) : ${text}`);
+
 // Callbacks fournis par devices.js (évite une dépendance circulaire)
 let onAgentReady = null;
 const setReadyHandler = (fn) => { onAgentReady = fn; };
@@ -192,6 +195,7 @@ function handleUpgrade(req, socket) {
       online.get(agentId)?.conn.close(4002); // une seule connexion par agent
       online.set(agentId, { conn, adb: m.adb || 'unknown', message: m.message || '', pending: new Map(), seq: 0, version: String(m.version || '') });
       conn.send({ type: 'welcome', agentId });
+      log(a, `connectée (appli ${m.version || '?'}), débogage : ${m.adb || 'inconnu'}${m.message ? ` — ${m.message}` : ''}`);
       if (m.adb === 'ok' && onAgentReady) onAgentReady(a).catch(() => {});
       return;
     }
@@ -204,6 +208,7 @@ function handleUpgrade(req, socket) {
       const was = o.adb;
       o.adb = m.adb || 'unknown';
       o.message = m.message || '';
+      if (o.adb !== was) log(agents()[agentId], `débogage : ${was} → ${o.adb}${o.message ? ` — ${o.message}` : ''}`);
       if (o.adb === 'ok' && was !== 'ok' && onAgentReady) onAgentReady(agents()[agentId]).catch(() => {});
     }
   });
@@ -214,6 +219,7 @@ function handleUpgrade(req, socket) {
     if (o && o.conn === conn) {
       for (const cb of o.pending.values()) cb({ ok: false, out: '', err: 'TV déconnectée' });
       online.delete(agentId);
+      log(agents()[agentId], 'déconnectée');
     }
   });
 }

@@ -172,7 +172,7 @@ AG.setReadyHandler(async (agent) => {
   if (!agent) return;
   const target = `agent:${agent.id}`;
   const info = await identify(target);
-  if (!info) return;
+  if (!info) { console.log(`[ATVM Connect] ${agent.name} (${agent.id}) : débogage OK mais identification de la TV impossible`); return; }
   const all = store.devices();
   const prev = all[info.id] || {};
   const users = new Set(prev.users || []);
@@ -180,6 +180,7 @@ AG.setReadyHandler(async (agent) => {
   store.upsertDevice({ ...info, transport: 'agent', agentId: agent.id, host: 'ATVM Connect', port: 0, remote: true, users: [...users], lastSeen: Date.now() });
   const agents = AG.agents();
   if (agents[agent.id]) { agents[agent.id].deviceId = info.id; AG.saveAgents(agents); }
+  console.log(`[ATVM Connect] ${agent.name} (${agent.id}) : TV ajoutée (${info.brand} ${info.model}, ${info.id})`);
 });
 
 async function reachAgent(dev) {
