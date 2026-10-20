@@ -19,7 +19,7 @@
     <string name="pair_step">Étape 3 sur 3</string>
     <string name="recheck">Vérifier la connexion</string>
     <string name="ask_auth">Afficher la fenêtre d\'autorisation</string>
-    <string name="asking_auth">La fenêtre « Autoriser le débogage ? » s\'ouvre sur l\'écran : coche « Toujours autoriser depuis cet ordinateur », puis choisis « OK » ou « Autoriser ».</string>
+    <string name="asking_auth">La fenêtre « Autoriser le débogage ? » s\'ouvre sur l\'écran. Attention : le bouton sélectionné au départ est souvent « Annuler ». Avec les flèches, va sur la case « Toujours autoriser depuis cet ordinateur » et appuie sur OK pour la cocher, puis va sur « OK » (ou « Autoriser ») et appuie sur OK.</string>
     <string name="rechecking">Vérification en cours…</string>
     <string name="dev_text_fire">Le bouton ci-dessous ouvre les paramètres. Va dans « Ma Fire TV » › « À propos », place-toi sur le nom de ta Fire TV (par exemple « Fire TV Stick 4K ») et appuie 7 fois sur OK jusqu\'au message « Vous êtes maintenant développeur ». Reviens ensuite ici avec la touche Retour.</string>
     <string name="adb_text_fire">Le bouton ci-dessous ouvre les paramètres. Va dans « Ma Fire TV » › « Options pour les développeurs » et active « Débogage ADB ». Reviens ensuite ici avec la touche Retour : une fenêtre « Autoriser le débogage ? » apparaîtra, accepte-la.</string>

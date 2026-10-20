@@ -95,7 +95,7 @@ class LocalAdb(context: Context) {
         "Le débogage réseau n'est pas actif. Dans les options pour les développeurs, active « Débogage USB » et aussi « Débogage réseau » ou « Débogage ADB via le réseau » s'il existe."
 
     private fun waitingMessage() =
-        "Une fenêtre « Autoriser le débogage ? » va s'afficher sur la TV : coche « Toujours autoriser » puis choisis « Autoriser » (ou « OK »)."
+        "Une fenêtre « Autoriser le débogage ? » va s'afficher. Le bouton sélectionné au départ est souvent « Annuler » : avec les flèches, coche d'abord « Toujours autoriser depuis cet ordinateur », puis va sur « OK » (ou « Autoriser »)."
 
     private fun noDialogMessage() = if (isFireTv)
         "La fenêtre d'autorisation n'a pas été acceptée. Désactive puis réactive « Débogage ADB » (Paramètres › Ma Fire TV › Options pour les développeurs), puis rouvre ATVM Connect et attends la fenêtre."
