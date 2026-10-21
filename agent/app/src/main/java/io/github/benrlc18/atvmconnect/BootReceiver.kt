@@ -4,7 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 
-/** Relance la connexion à ATV Manager au démarrage de la TV. */
+/** Relance la connexion à ATV Manager au démarrage de la TV, et juste après une mise à jour de l'appli. */
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (Prefs(context).paired) AgentService.start(context)

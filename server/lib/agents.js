@@ -3,6 +3,8 @@
 // Le serveur lui envoie des commandes shell, qu'elle exécute via l'ADB local de la TV (127.0.0.1:5555).
 // Aucun port à ouvrir chez le proche, pas de Tailscale.
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 const { EventEmitter } = require('events');
 const store = require('./store');
 
@@ -185,6 +187,49 @@ function install(agentId, url, timeout = 300000) {
 // Journal (docker logs atv-manager) : une ligne par changement d'état d'une TV ATVM Connect
 const log = (a, text) => console.log(`[ATVM Connect] ${(a && a.name) || 'TV'} (${(a && a.id) || '?'}) : ${text}`);
 
+// ---------------------------------------------------------------------
+// Mise à jour automatique d'ATVM Connect (appli 0.10.0 et plus)
+// ---------------------------------------------------------------------
+// Version proposée : celle de data/connect.json si une APK est posée dans data/ (servie par /connect.apk),
+// sinon la dernière release GitHub. La TV télécharge /connect.apk puis s'installe elle-même par son ADB local.
+const RELEASES_API = process.env.AGENT_RELEASES_API || 'https://api.github.com/repos/BenRlc18/atv-manager/releases/latest';
+const UPDATE_CHECK_MS = 6 * 3600000;
+const gh = { version: '', at: 0 };
+
+async function latestVersion() {
+  if (fs.existsSync(path.join(store.DATA_DIR, 'connect.apk'))) return String(store.read('connect.json', {}).version || '');
+  if (Date.now() - gh.at > UPDATE_CHECK_MS) {
+    gh.at = Date.now();
+    try {
+      const r = await fetch(RELEASES_API, { headers: { 'User-Agent': 'atv-manager' }, signal: AbortSignal.timeout(10000) });
+      const m = String((await r.json()).tag_name || '').match(/(\d+\.\d+\.\d+)/);
+      if (m) gh.version = m[1];
+    } catch { /* GitHub injoignable : nouvel essai au prochain contrôle */ }
+  }
+  return gh.version;
+}
+
+const vparts = (v) => String(v || '').split('.').map((x) => parseInt(x, 10) || 0);
+function isNewer(a, b) {
+  const x = vparts(a);
+  const y = vparts(b);
+  for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0);
+  return false;
+}
+
+// Propose la mise à jour une fois par connexion (et de nouveau quand le débogage vient d'être autorisé)
+async function offerUpdate(agentId) {
+  const o = online.get(agentId);
+  if (!o || !o.version || o.adb !== 'ok') return;
+  const latest = await latestVersion();
+  if (!latest || !isNewer(latest, o.version) || o.offered === latest || online.get(agentId) !== o) return;
+  o.offered = latest;
+  o.conn.send({ type: 'update', version: latest, url: '/connect.apk' });
+  log(agents()[agentId], `mise à jour proposée : ${o.version} → ${latest}`);
+}
+
+setInterval(() => { for (const id of online.keys()) offerUpdate(id).catch(() => {}); }, UPDATE_CHECK_MS).unref();
+
 // Callbacks fournis par devices.js (évite une dépendance circulaire)
 let onAgentReady = null;
 const setReadyHandler = (fn) => { onAgentReady = fn; };
@@ -212,6 +257,7 @@ function handleUpgrade(req, socket) {
       conn.send({ type: 'welcome', agentId });
       log(a, `connectée (appli ${m.version || '?'}), débogage : ${m.adb || 'inconnu'}${m.message ? ` — ${m.message}` : ''}`);
       if (m.adb === 'ok' && onAgentReady) onAgentReady(a).catch(() => {});
+      offerUpdate(agentId).catch(() => {});
       return;
     }
     const o = online.get(agentId);
@@ -224,7 +270,12 @@ function handleUpgrade(req, socket) {
       o.adb = m.adb || 'unknown';
       o.message = m.message || '';
       if (o.adb !== was) log(agents()[agentId], `débogage : ${was} → ${o.adb}${o.message ? ` — ${o.message}` : ''}`);
-      if (o.adb === 'ok' && was !== 'ok' && onAgentReady) onAgentReady(agents()[agentId]).catch(() => {});
+      if (o.adb === 'ok' && was !== 'ok') {
+        if (onAgentReady) onAgentReady(agents()[agentId]).catch(() => {});
+        offerUpdate(agentId).catch(() => {});
+      }
+    } else if (m.type === 'update-status') {
+      log(agents()[agentId], `mise à jour ${String(m.version || '')} : ${String(m.message || '').slice(0, 200)}`);
     }
   });
 

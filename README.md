@@ -41,6 +41,8 @@ Aucune adresse n'est à taper : c'est le serveur qui a généré le code qui l'a
 
 La TV apparaît dans la liste de la personne qui a généré le code. ATVM Connect exécute uniquement les actions lancées depuis ATV Manager, via l'ADB local de la TV (`127.0.0.1:5555`). On peut la retirer à tout moment depuis la fiche de la TV.
 
+**Mise à jour automatique** (ATVM Connect 0.10.0 et plus) : à chaque connexion, puis toutes les 6 heures, le serveur compare la version de l’appli avec la dernière disponible. Si elle est plus ancienne, la TV télécharge `/connect.apk` et s’installe elle-même par son ADB local, sans rien demander, puis redémarre. Version proposée : celle indiquée dans `data/connect.json` (`{"version": "0.10.0"}`) quand une APK est posée dans `data/connect.apk`, sinon la dernière release GitHub. La nouvelle APK doit être signée avec la même clé.
+
 Le code source de l'appli est dans `agent/` (Kotlin). L'APK est compilée par GitHub Actions : un tag `connect-vX.Y.Z` publie une release. Pour signer tes propres versions, ajoute les secrets `ATVM_KEYSTORE_B64` (PKCS12 en base64, alias `atvm`) et `ATVM_KEYSTORE_PASSWORD`.
 
 ## Lancer avec Docker

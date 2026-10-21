@@ -177,11 +177,7 @@ class AgentService : Service() {
                         exec.execute {
                             val r = try {
                                 val file = java.io.File(cacheDir, "atvm-install.apk")
-                                val dl = OkHttpClient.Builder().connectTimeout(20, TimeUnit.SECONDS).readTimeout(120, TimeUnit.SECONDS).build()
-                                dl.newCall(Request.Builder().url(url).build()).execute().use { res ->
-                                    if (!res.isSuccessful) throw java.io.IOException("téléchargement refusé (erreur ${res.code})")
-                                    file.outputStream().use { out -> res.body!!.byteStream().copyTo(out) }
-                                }
+                                download(url, file)
                                 adb.install(file, timeout).also { file.delete() }
                             } catch (e: Exception) {
                                 LocalAdb.Result(false, "", "Téléchargement impossible : ${e.message ?: e.javaClass.simpleName}")
@@ -189,6 +185,12 @@ class AgentService : Service() {
                             val res = JSONObject().put("type", "result").put("id", id).put("ok", r.ok).put("out", r.out).put("err", r.err)
                             webSocket.send(res.toString())
                         }
+                    }
+                    // Nouvelle version d'ATVM Connect disponible sur le serveur
+                    "update" -> {
+                        val version = m.optString("version")
+                        val path = m.optString("url", "/connect.apk")
+                        exec.execute { selfUpdate(webSocket, version, path) }
                     }
                     "error" -> {
                         if (m.optString("code") == "revoked") {
@@ -207,6 +209,48 @@ class AgentService : Service() {
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) { if (gen == wsGen) retry("Connexion fermée, nouvel essai bientôt.") }
         })
     }
+
+    private fun download(url: String, file: java.io.File) {
+        val dl = OkHttpClient.Builder().connectTimeout(20, TimeUnit.SECONDS).readTimeout(120, TimeUnit.SECONDS).build()
+        dl.newCall(Request.Builder().url(url).build()).execute().use { res ->
+            if (!res.isSuccessful) throw java.io.IOException("téléchargement refusé (erreur ${res.code})")
+            file.outputStream().use { out -> res.body!!.byteStream().copyTo(out) }
+        }
+    }
+
+    /**
+     * Mise à jour automatique : la TV télécharge la nouvelle version et l'installe par son ADB local, sans rien demander.
+     * Android arrête l'appli pendant son remplacement ; BootReceiver (MY_PACKAGE_REPLACED) relance ensuite le service.
+     */
+    private fun selfUpdate(ws: WebSocket, version: String, path: String) {
+        fun report(text: String) {
+            ws.send(JSONObject().put("type", "update-status").put("version", version).put("message", text).toString())
+        }
+        if (adb.state != LocalAdb.State.OK) { report("en attente : débogage pas encore autorisé"); return }
+        val url = if (path.startsWith("http")) path else prefs.server + path
+        val file = java.io.File(cacheDir, "atvm-update.apk")
+        try {
+            download(url, file)
+            // On n'installe que la même appli, en version plus récente
+            val next = packageManager.getPackageArchiveInfo(file.path, 0)
+            val current = packageManager.getPackageInfo(packageName, 0)
+            if (next == null || next.packageName != packageName || versionCode(next) <= versionCode(current)) {
+                report("ignorée : l'APK du serveur n'est pas plus récente que la version installée (${current.versionName})")
+                return
+            }
+            report("installation de la version ${next.versionName}…")
+            val r = adb.install(file, 300_000L)
+            if (!r.ok) report("échec : ${r.err}")
+        } catch (e: Exception) {
+            report("échec : ${e.message ?: e.javaClass.simpleName}")
+        } finally {
+            file.delete()
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun versionCode(p: android.content.pm.PackageInfo): Long =
+        if (Build.VERSION.SDK_INT >= 28) p.longVersionCode else p.versionCode.toLong()
 
     private fun retry(msg: String) {
         if (stopped || !prefs.paired) return

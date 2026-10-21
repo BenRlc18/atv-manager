@@ -40,7 +40,10 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8 : code réduit et noms brouillés, l'APK est bien plus difficile à décompiler
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
     }
