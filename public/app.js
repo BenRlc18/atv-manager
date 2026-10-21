@@ -1120,11 +1120,11 @@ async function viewAddRemote(rid) {
           ${S.features.downloaderCode ? `<div class="pair-code mono">${esc(S.features.downloaderCode)}</div><p class="sm t3">ou l'adresse <span class="mono">${esc(apk)}</span></p>` : `<div class="copy-line"><span class="mono">${esc(apk)}</span><button class="btn sm" data-copyline="${esc(`https://${apk}`)}">${ic('copy')}Copier</button></div>`}
           <p>Lance le téléchargement puis <b>Installer</b>. Si Android le demande, autorise Downloader à installer des applis.</p></div></li>
         <li><div><h3>Ouvre ATVM Connect et suis ses instructions</h3>
-          <p>L'appli vérifie si le <b>mode développeur</b> et le <b>débogage</b> sont actifs. Sinon, elle ouvre directement le bon écran des paramètres et explique quoi faire : 7 appuis sur « Build », puis activer « Débogage USB » et « Débogage réseau ». Plus besoin de chercher dans les menus.</p></div></li>
+          <p>L'appli vérifie si le <b>mode développeur</b> et le <b>débogage</b> sont actifs. Sinon, elle ouvre directement le bon écran des paramètres et explique quoi faire : 7 appuis sur « Build », puis activer « Débogage USB » et « Débogage réseau ». Plus besoin de chercher dans les menus.</p>
+          <p>Ensuite, ATVM Connect fait apparaître la fenêtre « Autoriser le débogage ? » : coche <b>Toujours autoriser</b> et valide (le bouton sélectionné au départ est souvent « Annuler »).</p></div></li>
         <li><div><h3>Entre le code dans l'appli</h3>
-          <p>À la dernière étape, ATVM Connect demande ce code : elle se relie toute seule à ce serveur, aucune adresse à taper.</p>
+          <p>À la dernière étape, ATVM Connect demande ce code : elle se relie toute seule à ce serveur, aucune adresse à taper. La TV apparaît alors automatiquement ici et dans <a href="#/">${isAdmin() ? 'Appareils' : 'Mes TV'}</a>.</p>
           <div id="pair-box"><button class="btn primary" id="pair-gen">Générer un code</button></div></div></li>
-        <li><div><h3>Autorise le débogage</h3><p>La TV affiche « Autoriser le débogage ? » : coche <b>Toujours autoriser</b> et valide. La TV apparaît alors automatiquement ici et dans <a href="#/">${isAdmin() ? 'Appareils' : 'Mes TV'}</a>.</p></div></li>
       </ol>
     </div>
     ${S.features.tailscale ? `

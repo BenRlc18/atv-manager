@@ -107,9 +107,7 @@ class LocalAdb(context: Context) {
         }
     }
 
-    private fun portOpen(): Boolean = try {
-        Socket().use { it.connect(InetSocketAddress(HOST, PORT), 1500); true }
-    } catch (_: Exception) { false }
+    private fun portOpen(): Boolean = isPortOpen()
 
     private val isFireTv = Build.MANUFACTURER.equals("Amazon", ignoreCase = true)
 
@@ -171,5 +169,10 @@ class LocalAdb(context: Context) {
         const val HOST = "127.0.0.1"
         const val PORT = 5555
         const val AUTH_WAIT_MS = 120_000L
+
+        /** Port ADB local ouvert = débogage actif, même si le réglage ne le dit pas (cas de certaines Fire TV). */
+        fun isPortOpen(): Boolean = try {
+            Socket().use { it.connect(InetSocketAddress(HOST, PORT), 1500); true }
+        } catch (_: Exception) { false }
     }
 }

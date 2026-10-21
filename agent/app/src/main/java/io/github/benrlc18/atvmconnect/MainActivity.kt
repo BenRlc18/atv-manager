@@ -12,12 +12,14 @@ import android.view.inputmethod.EditorInfo
 import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
+import java.util.concurrent.Executors
 import kotlin.concurrent.thread
 
 /**
- * Écran unique, en 3 étapes :
+ * Écran unique, en 4 étapes :
  * 1. mode développeur, 2. débogage (l'appli ouvre le bon écran des paramètres et explique quoi faire),
- * 3. association avec le code affiché dans ATV Manager. Ensuite : état de la connexion.
+ * 3. autorisation : l'appli se connecte elle-même à l'ADB de la TV, ce qui fait apparaître « Autoriser le débogage ? »,
+ * 4. association avec le code affiché dans ATV Manager. Ensuite : état de la connexion.
  */
 class MainActivity : Activity() {
 
@@ -50,6 +52,13 @@ class MainActivity : Activity() {
 
     private var skipSetup = false
     private var shownStep = -1
+
+    // Le réglage « adb_enabled » ne suffit pas (Fire TV) : on teste aussi le port ADB local, hors du fil principal
+    private val portChecker = Executors.newSingleThreadExecutor()
+    @Volatile private var portOpen = false
+    // Étape 3 : connexion ADB de l'écran d'installation (le service prend le relais après l'association)
+    private var localAdb: LocalAdb? = null
+    private var autoAsked = false
 
     private val defaultServer: String get() = Prefs.normalizeServer(BuildConfig.DEFAULT_SERVER)
     private val isFireTv = Build.MANUFACTURER.equals("Amazon", ignoreCase = true)
@@ -116,6 +125,7 @@ class MainActivity : Activity() {
         super.onResume()
         shownStep = -1 // au retour des paramètres, on réévalue l'étape et on replace le focus
         if (prefs.paired) AgentService.start(this)
+        checkPort()
         refresh()
         main.postDelayed(ticker, 1000)
     }
@@ -125,8 +135,44 @@ class MainActivity : Activity() {
         super.onPause()
     }
 
+    override fun onDestroy() {
+        localAdb?.close()
+        portChecker.shutdownNow()
+        super.onDestroy()
+    }
+
     private val ticker = object : Runnable {
-        override fun run() { refresh(); main.postDelayed(this, 1000) }
+        override fun run() { checkPort(); refresh(); main.postDelayed(this, 1000) }
+    }
+
+    private fun checkPort() {
+        if (prefs.paired) return
+        try { portChecker.execute { portOpen = LocalAdb.isPortOpen() } } catch (_: Exception) { }
+    }
+
+    /** Lance (ou relance) la connexion à l'ADB local : la TV affiche alors « Autoriser le débogage ? ». */
+    private fun startAuth() {
+        val adb = localAdb ?: LocalAdb(this).also { localAdb = it }
+        askedAt = System.currentTimeMillis()
+        thread {
+            // Une tentative est déjà en cours : on l'abandonne pour que la fenêtre réapparaisse
+            if (adb.isAuthorizing) {
+                adb.cancelAttempt()
+                var tries = 0
+                while (adb.isAuthorizing && tries++ < 20) Thread.sleep(250)
+            }
+            val s = adb.authorize()
+            main.post {
+                if (s == LocalAdb.State.OK) {
+                    prefs.adbAuthorized = true
+                    adb.close()
+                    if (localAdb === adb) localAdb = null
+                }
+                shownStep = -1
+                refresh()
+            }
+        }
+        refresh()
     }
 
     private fun globalFlag(name: String) = try { Settings.Global.getInt(contentResolver, name, 0) == 1 } catch (_: Exception) { false }
@@ -143,39 +189,55 @@ class MainActivity : Activity() {
 
     private fun refresh() {
         val paired = prefs.paired
-        // Étape à afficher : 1 = mode développeur, 2 = débogage, 3 = association
+        // Étape à afficher : 1 = mode développeur, 2 = débogage, 3 = autorisation, 4 = association
+        val debugOn = adbEnabled() || portOpen
         val step = when {
             paired -> 0
-            skipSetup -> 3
+            skipSetup || (debugOn && prefs.adbAuthorized) -> 4
+            debugOn -> 3
             !developerEnabled() -> 1
-            !adbEnabled() -> 2
-            else -> 3
+            else -> 2
         }
-        setupGroup.visibility = if (step == 1 || step == 2) View.VISIBLE else View.GONE
-        pairGroup.visibility = if (step == 3) View.VISIBLE else View.GONE
+        setupGroup.visibility = if (step in 1..3) View.VISIBLE else View.GONE
+        pairGroup.visibility = if (step == 4) View.VISIBLE else View.GONE
         statusGroup.visibility = if (paired) View.VISIBLE else View.GONE
 
         if (step != shownStep) {
             shownStep = step
             when (step) {
-                1 -> showSetup(R.string.dev_step, R.string.dev_title, if (isFireTv) R.string.dev_text_fire else R.string.dev_text, R.string.dev_open, Settings.ACTION_DEVICE_INFO_SETTINGS)
-                2 -> showSetup(R.string.adb_step, R.string.adb_title, if (isFireTv) R.string.adb_text_fire else R.string.adb_text, R.string.adb_open, Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)
-                3 -> showPair()
+                1 -> showSetup(R.string.dev_step, R.string.dev_title, if (isFireTv) R.string.dev_text_fire else R.string.dev_text, R.string.dev_open) { openSettings(Settings.ACTION_DEVICE_INFO_SETTINGS) }
+                2 -> showSetup(R.string.adb_step, R.string.adb_title, if (isFireTv) R.string.adb_text_fire else R.string.adb_text, R.string.adb_open) { openSettings(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS) }
+                3 -> {
+                    showSetup(R.string.auth_step, R.string.auth_title, R.string.auth_text, R.string.ask_auth) { startAuth() }
+                    // Première arrivée sur l'étape : l'appli fait apparaître la fenêtre d'elle-même
+                    if (!autoAsked) { autoAsked = true; startAuth() }
+                }
+                4 -> showPair()
             }
         }
         if (step == 3) {
+            val adb = localAdb
+            val text = when {
+                adb == null -> getString(R.string.auth_text)
+                adb.isAuthorizing -> getString(R.string.auth_waiting)
+                adb.message.isNotEmpty() -> adb.message
+                else -> getString(R.string.auth_text)
+            }
+            if (setupText.text.toString() != text) setupText.text = text
+        }
+        if (step == 4) {
             val s = AgentService.status
             if (s.server == "revoked" && error.text.isEmpty()) showError(s.message)
         }
         if (paired) refreshStatus()
     }
 
-    private fun showSetup(stepRes: Int, titleRes: Int, textRes: Int, buttonRes: Int, action: String) {
+    private fun showSetup(stepRes: Int, titleRes: Int, textRes: Int, buttonRes: Int, onClick: () -> Unit) {
         setupStep.setText(stepRes)
         setupTitle.setText(titleRes)
         setupText.setText(textRes)
         setupOpen.setText(buttonRes)
-        setupOpen.setOnClickListener { openSettings(action) }
+        setupOpen.setOnClickListener { onClick() }
         setupOpen.requestFocus()
     }
 

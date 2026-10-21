@@ -21,6 +21,11 @@ class Prefs(context: Context) {
     val paired: Boolean
         get() = server.isNotEmpty() && agentId.isNotEmpty() && token.isNotEmpty()
 
+    /** La TV a accepté la fenêtre « Autoriser le débogage ? » pour cette appli (étape 3). */
+    var adbAuthorized: Boolean
+        get() = sp.getBoolean("adbAuthorized", false)
+        set(v) = sp.edit().putBoolean("adbAuthorized", v).apply()
+
     fun clearPairing() {
         sp.edit().remove("agentId").remove("token").apply()
     }
