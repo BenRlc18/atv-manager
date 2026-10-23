@@ -99,6 +99,11 @@ Les applis proposées au niveau 2 sont dans `server/catalog.json`, avec un nivea
 
 MIT
 
+## Crédits / Sources tierces
+
+- Les listes de paquets par modèle proviennent du projet **CleanYourTV** de Gathin (https://github.com/Gathin23/cleanyourtv), licence MIT. Elles sont importées dans `server/cleanyourtv.json` par `node tools/import-cleanyourtv.js <clone de CleanYourTV>` (projet, commit et date d'import sont notés dans le fichier) ; la licence d'origine est reprise dans `server/third_party/cleanyourtv-LICENSE`.
+- ATV Manager s'en sert pour reconnaître le modèle de la TV et suggérer, au niveau 2, des applis absentes de son propre catalogue. Ces suggestions portent la mention « CleanYourTV » et la note d'origine (en anglais). Le catalogue d'ATV Manager reste prioritaire, et les applis que CleanYourTV garde sur un modèle ne sont jamais proposées pour ce modèle.
+
 ## APK personnalisée pour ton serveur
 
 L'APK publique est **générique** : elle trouve ATV Manager sur le réseau local, ou demande l'adresse du serveur. Pour que tes proches n'aient **que le code à taper**, compile ta propre APK avec ton serveur intégré (variable de dépôt `ATVM_DEFAULT_SERVER`, par exemple dans un dépôt privé) et dépose-la dans `data/connect.apk` : ATV Manager la sert alors sur `/connect.apk`. Signe-la avec la même clé que l'APK publique pour pouvoir passer de l'une à l'autre sans désinstaller.

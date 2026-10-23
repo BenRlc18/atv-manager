@@ -259,11 +259,11 @@
       "pkg": "com.tcl.factory.view",
       "name": "Tests usine",
       "level": 2,
-      "risk": "safe",
+      "risk": "warn",
       "category": "Fabricant",
       "brand": "TCL",
-      "why": "Outil de test en usine.",
-      "loss": "Aucune."
+      "why": "Outil de test en usine, mais CleanYourTV le classe « à ne jamais désactiver » sur plusieurs TCL (menus et réglages système qui en dépendent).",
+      "loss": "Risque de menus ou réglages TCL cassés selon le modèle."
     },
     {
       "pkg": "com.tcl.esticker",
@@ -279,11 +279,11 @@
       "pkg": "com.tcl.initsetup",
       "name": "Configuration initiale TCL",
       "level": 2,
-      "risk": "safe",
+      "risk": "warn",
       "category": "Configuration terminée",
       "brand": "TCL",
-      "why": "Ne sert qu'à la première installation.",
-      "loss": "Aucune."
+      "why": "Assistant de première installation TCL. CleanYourTV le classe « à ne jamais désactiver » sur plusieurs TCL.",
+      "loss": "Risque de blocage au démarrage ou à la recherche des chaînes selon le modèle."
     },
     {
       "pkg": "com.tcl.ocean.instructions",

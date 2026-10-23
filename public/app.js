@@ -53,6 +53,33 @@ const RISK = {
   unknown: { label: 'Inconnue', dot: '' },
 };
 
+// ---------- Textes CleanYourTV (regroupés pour le futur sélecteur de langue FR/EN)
+const CYT_URL = 'https://github.com/Gathin23/cleanyourtv';
+const TXT = {
+  fr: {
+    cytBadge: 'CleanYourTV',
+    cytTip: "Proposé d'après la liste CleanYourTV",
+    cytTipModel: (m) => `Proposé d'après la liste CleanYourTV pour le modèle ${m}`,
+    cytNote: 'Note CleanYourTV :',
+    cytModel: 'Modèle reconnu par CleanYourTV :',
+    cytNoModel: 'Suggestions issues de CleanYourTV (aucun modèle exact reconnu)',
+    cytHelp: 'Ces applis viennent de listes partagées par la communauté pour chaque modèle de TV. Tu gagnes des suggestions adaptées à ta TV ; vérifie quand même ce que tu perds avant de cocher.',
+    cytCredit: 'Listes de paquets par modèle :',
+    cytCreditBy: 'par Gathin (licence MIT)',
+  },
+};
+const T = TXT.fr;
+const isCyt = (a) => a && a.source === 'CleanYourTV';
+// Les notes CleanYourTV sont souvent en anglais : repérage simple (pas d'accent, mots anglais courants).
+const looksEnglish = (s) => {
+  const t = ` ${String(s || '').toLowerCase()} `;
+  if (/[àâçéèêëîïôûùüœ]/.test(t)) return false;
+  const en = (t.match(/\b(the|and|is|of|to|for|used|not|this|can|be|it|if|with|safe|remove|app|service|apps|may|will|you|your|disable|needed|required)\b/g) || []).length;
+  const fr = (t.match(/\b(le|la|les|des|une|est|pour|et|du|sur|ta|ton|tes|pas|qui)\b/g) || []).length;
+  return en > fr;
+};
+const cytCredit = () => `${T.cytCredit} <a href="${CYT_URL}" target="_blank" rel="noopener noreferrer">CleanYourTV</a> ${T.cytCreditBy}`;
+
 async function api(path, { method = 'GET', body } = {}) {
   let res;
   const post = method !== 'GET';
@@ -160,7 +187,8 @@ function drawChrome() {
       <span class="who"><b>${esc(S.user.name)}</b><span>${isAdmin() ? 'Administrateur' : 'Invité'}</span></span>
       <button class="btn quiet sm" data-logout title="Se déconnecter" aria-label="Se déconnecter">${ic('logout')}</button>
     </div>
-    <span class="t3">Version ${esc(S.version)}</span>` : '';
+    <span class="t3">Version ${esc(S.version)}</span>
+    <span class="t3 credit">${cytCredit()}</span>` : '';
 }
 
 async function logout() {
@@ -881,6 +909,7 @@ async function viewOptimize(rid, id, levelStr) {
     const anim = p.settingsChanges[0];
     $app.innerHTML = `
       ${head()}
+      ${cytLine(p)}
       <section class="section">
         <div class="section-head"><h2>Réglages et nettoyage</h2><p>Mémoire libre actuellement : <b class="num">${p.ramFreeMb != null ? fmtMb(p.ramFreeMb) : '?'}</b></p></div>
         <div class="panel panel-pad">
@@ -974,6 +1003,21 @@ async function viewOptimize(rid, id, levelStr) {
     }));
   };
 
+  // En tête du plan : modèle reconnu par CleanYourTV, ou suggestions sans modèle exact. Rien si l'ancien serveur ne fournit pas ces champs.
+  const cytLine = (p) => {
+    const c = p.cleanyourtv || null;
+    const any = (p.apps || []).some(isCyt);
+    if (!(c && c.model) && !any) return '';
+    const url = c && /^https:\/\//.test(c.url || '') ? c.url : CYT_URL;
+    const txt = c && c.model ? `${T.cytModel} <b>${esc(c.model)}</b>` : T.cytNoModel;
+    return `<div class="note cyt">${ic('info')}<div class="stack"><span>${txt}</span><span class="sm t2">${esc(T.cytHelp)} <a href="${esc(url)}" target="_blank" rel="noopener noreferrer">CleanYourTV</a></span></div></div>`;
+  };
+
+  const cytBadge = (a) => isCyt(a)
+    ? ` <span class="tag cyt" title="${esc(a.sourceModel ? T.cytTipModel(a.sourceModel) : T.cytTip)}">${T.cytBadge}</span>`
+    : '';
+  const whyText = (a) => (isCyt(a) && a.why && looksEnglish(a.why) ? `<span class="t3">${T.cytNote}</span> <span lang="en">${esc(a.why)}</span>` : esc(a.why));
+
   const appRow = (a) => {
     const r = RISK[a.risk] || RISK.unknown;
     const on = st.sel.has(a.pkg);
@@ -982,9 +1026,9 @@ async function viewOptimize(rid, id, levelStr) {
       <label class="app-row ${on ? 'sel' : ''} ${a.disabled ? 'done' : ''} ${a.locked ? 'locked' : ''}">
         <input type="checkbox" value="${esc(a.pkg)}" ${on ? 'checked' : ''} ${off ? 'disabled' : ''}>
         <div style="min-width:0">
-          <div class="nm">${esc(a.name)}</div>
+          <div class="nm">${esc(a.name)}${cytBadge(a)}</div>
           ${a.name !== a.pkg ? `<div class="pkg">${esc(a.pkg)}</div>` : ''}
-          <p class="why">${esc(a.why)}${a.loss && !a.locked && a.risk !== 'safe' ? ` <span class="loss"><b>Perte :</b> ${esc(a.loss)}</span>` : ''}</p>
+          <p class="why">${whyText(a)}${a.loss && !a.locked && a.risk !== 'safe' ? ` <span class="loss"><b>Perte :</b> ${esc(a.loss)}</span>` : ''}</p>
         </div>
         <div class="risk">${a.disabled ? `<span class="dot"></span>Déjà désactivée` : a.locked ? `${ic('lock')}${r.label}` : `<span class="dot ${r.dot}"></span>${r.label}`}</div>
         <div class="mem">${a.memMb ? fmtMb(a.memMb) : '<span class="t3">—</span>'}</div>
@@ -1536,7 +1580,7 @@ async function viewSettings(rid) {
   await loadState();
   if (rid !== renderId) return;
   if (!isAdmin()) {
-    $app.innerHTML = `<div class="page-head"><div class="lead"><h1>Compte</h1></div></div>${accountSection()}`;
+    $app.innerHTML = `<div class="page-head"><div class="lead"><h1>Compte</h1></div></div>${accountSection()}<p class="sm t3 credit-line">${cytCredit()}</p>`;
     bindAccount();
     return;
   }
@@ -1601,6 +1645,7 @@ async function viewSettings(rid) {
         <table class="table" style="border-top:1px solid var(--line)">
           <tr><td class="t3" style="width:40%">Version</td><td class="mono">${esc(S.version)}</td></tr>
           <tr><td class="t3">TV enregistrées</td><td class="num">${S.devices.length}</td></tr>
+          <tr><td class="t3">Crédits</td><td class="sm">${cytCredit()}</td></tr>
         </table>
       </div>
     </section>`;

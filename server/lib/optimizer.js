@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const A = require('./adb');
 const store = require('./store');
+const CYT = require('./cleanyourtv');
 
 const catalog = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'catalog.json'), 'utf8'));
 const byPkg = new Map(catalog.apps.map((a) => [a.pkg, a]));
@@ -74,6 +75,14 @@ async function homeActivities(target) {
   return component(r.out).filter((c) => !/FallbackHome|ResolverActivity/.test(c));
 }
 
+// Propriétés de l'appareil utiles à la reconnaissance du modèle CleanYourTV (en plus de celles de dev)
+async function modelProps(target, dev) {
+  const r = await A.shell(target, 'echo name=$(getprop ro.product.name); echo product=$(getprop ro.build.product); echo fingerprint=$(getprop ro.build.fingerprint)', { timeout: 8000 });
+  return CYT.deviceProps(dev, A.parseKv(r.out));
+}
+const CYT_CRITICAL = /webview|inputmethod|\.ime$|keyboard|packageinstaller|bluetooth|setupwraith|launcher|tvhome/i;
+const CYT_LOSS = "Non documentée en français : lis la note de CleanYourTV (en anglais) avant de la retirer.";
+
 async function getSettings(target) {
   const r = await A.shell(target, ANIMATION_KEYS.map((k) => `echo ${k}=$(settings get global ${k})`).join('; '), { timeout: 8000 });
   return A.parseKv(r.out);
@@ -103,7 +112,7 @@ const LEVELS = {
 // Aperçu de ce que ferait un niveau
 async function plan(target, dev, level, mode = 'recommended') {
   level = Math.min(3, Math.max(1, Number(level) || 1));
-  const [pk, mem, settings, ramFree, wifi] = await Promise.all([listPackages(target), memoryByPackage(target), getSettings(target), ramFreeMb(target), wifiInfo(target)]);
+  const [pk, mem, settings, ramFree, wifi, props] = await Promise.all([listPackages(target), memoryByPackage(target), getSettings(target), ramFreeMb(target), wifiInfo(target), modelProps(target, dev)]);
   const installed = new Set([...pk.system, ...pk.user]);
   const memMb = (pkg) => Math.round(((mem.get(pkg) || 0) / 1024) * 10) / 10;
   const wifiLock = (a) => (wifi.owners.has(a.pkg) && !a.disabled ? { ...a, risk: 'protected', why: WIFI_WHY, checked: false, locked: true } : a);
@@ -112,22 +121,58 @@ async function plan(target, dev, level, mode = 'recommended') {
   const settingsChanges = animSkipped ? [] : ANIMATION_KEYS.map((k) => ({ key: k, from: settings[k] && settings[k] !== 'null' ? settings[k] : '1.0', to: ANIMATION_TARGET }))
     .filter((s) => s.from !== ANIMATION_TARGET);
 
+  // CleanYourTV : modèle reconnu, puis suggestions pour les applis système absentes du catalogue maison.
+  // Garde-fous : catalogue prioritaire, isProtected(), lanceurs (écran d'accueil), applis critiques, keep du modèle.
+  const detected = CYT.detect(props);
+  const homes = level >= 2 ? await homeActivities(target) : [];
+  const homePkgs = new Set(homes.map((c) => c.split('/')[0]));
+  const cyt = level >= 2
+    ? CYT.suggestions(detected, pk.system, (pkg) => byPkg.has(pkg) || isProtected(pkg) || homePkgs.has(pkg) || CYT_CRITICAL.test(pkg) || pk.user.has(pkg))
+    : { list: new Map(), isKept: () => false };
+  const cytEntry = (pkg, s) => {
+    const disabled = pk.disabled.has(pkg);
+    const risk = s.safe ? 'safe' : 'info';
+    return wifiLock({
+      pkg, name: pkg, level: 2, risk, category: 'Suggestions CleanYourTV',
+      why: s.why, loss: CYT_LOSS,
+      source: 'CleanYourTV', sourceModel: s.sourceModel, cytModels: s.models,
+      memMb: memMb(pkg), disabled, checked: !disabled && mode === 'recommended' && risk === 'safe', locked: false,
+    });
+  };
+
   const apps = [];
   for (const meta of catalog.apps) {
     if (!installed.has(meta.pkg)) continue;
     if (meta.level > level) continue;
     const disabled = pk.disabled.has(meta.pkg);
-    apps.push(wifiLock({
+    const entry = {
       ...meta,
       memMb: memMb(meta.pkg),
       disabled,
       checked: !disabled && (meta.level === 1 || (mode === 'recommended' && meta.risk === 'safe')),
       locked: false,
-    }));
+    };
+    // Information seulement : CleanYourTV déconseille fortement de la retirer sur ce modèle (« NEVER disable »,
+    // paquet protégé...). L'entrée du catalogue ne change pas, c'est au catalogue maison d'être corrigé si besoin.
+    if (CYT.criticalFor(detected.models, meta.pkg)) entry.cytKept = true;
+    apps.push(wifiLock(entry));
+  }
+  if (level >= 2 && mode === 'recommended') {
+    for (const [pkg, s] of [...cyt.list].sort((a, b) => a[0].localeCompare(b[0]))) apps.push(cytEntry(pkg, s));
   }
   if (level >= 2 && mode === 'manual') {
     for (const pkg of [...installed].sort()) {
       if (byPkg.has(pkg)) continue;
+      if (cyt.list.has(pkg)) { apps.push(cytEntry(pkg, cyt.list.get(pkg))); continue; }
+      if (detected.models.length && cyt.isKept(pkg) && !isProtected(pkg)) {
+        apps.push(wifiLock({
+          pkg, name: pkg, level: 2, risk: 'protected', category: pk.user.has(pkg) ? 'Applis installées' : 'Autres applis système',
+          why: `Gardée par CleanYourTV sur ce modèle (${detected.models[0].label}).`, loss: '',
+          source: 'CleanYourTV', sourceModel: detected.models[0].label,
+          memMb: memMb(pkg), disabled: pk.disabled.has(pkg), checked: false, locked: true, user: pk.user.has(pkg),
+        }));
+        continue;
+      }
       const prot = isProtected(pkg);
       apps.push(wifiLock({
         pkg, name: pkg, level: 2, risk: prot ? 'protected' : 'unknown', category: pk.user.has(pkg) ? 'Applis installées' : 'Autres applis système',
@@ -140,9 +185,7 @@ async function plan(target, dev, level, mode = 'recommended') {
 
   let launcher = null;
   if (level >= 3) {
-    const homes = await homeActivities(target);
     const current = await currentHome(target);
-    const homePkgs = new Set(homes.map((c) => c.split('/')[0]));
     const stockPkg = current ? current.split('/')[0] : '';
     launcher = {
       current, stockPkg,
@@ -155,7 +198,7 @@ async function plan(target, dev, level, mode = 'recommended') {
   }
 
   const checkedMem = apps.filter((a) => a.checked).reduce((s, a) => s + a.memMb, 0);
-  return { level, mode, info: LEVELS[level], levels: LEVELS, settingsChanges, animSkipped, apps, launcher, ramFreeMb: ramFree, estimateMb: Math.round(checkedMem) };
+  return { level, mode, info: LEVELS[level], levels: LEVELS, settingsChanges, animSkipped, apps, launcher, ramFreeMb: ramFree, estimateMb: Math.round(checkedMem), cleanyourtv: CYT.summary(detected) };
 }
 
 // Fire TV (Amazon) : on ne touche pas aux animations, sinon les paramètres de la Fire TV deviennent inaccessibles
@@ -175,8 +218,10 @@ async function apply(target, dev, body) {
   const level = Math.min(3, Math.max(1, Number(body.level) || 1));
   const wanted = Array.isArray(body.apps) ? [...new Set(body.apps.map(String))] : [];
   return withLock(dev.id, async () => {
-    const [pk, wifi] = await Promise.all([listPackages(target), wifiInfo(target)]);
+    const [pk, wifi, props] = await Promise.all([listPackages(target), wifiInfo(target), modelProps(target, dev)]);
     const installed = new Set([...pk.system, ...pk.user]);
+    const detected = CYT.detect(props);
+    const cytKept = (pkg) => CYT.keptBy(detected.models, pkg);
 
     // Validation avant toute modification
     const refused = [];
@@ -188,6 +233,7 @@ async function apply(target, dev, body) {
       else if (pk.disabled.has(pkg)) continue;
       else if (wifi.owners.has(pkg)) wifiKept.push(pkg); // jamais : la TV perdrait son Wi-Fi
       else if (isProtected(pkg) && !meta) refused.push({ pkg, reason: 'protégée' });
+      else if (!meta && cytKept(pkg)) refused.push({ pkg, reason: 'gardée par CleanYourTV sur ce modèle' });
       else if (meta && meta.level > level) refused.push({ pkg, reason: `réservée au niveau ${meta.level}` });
       else if (!meta && level < 2) refused.push({ pkg, reason: 'réservée au niveau 2' });
       else if (meta && meta.risk === 'warn' && !body.allowWarn) refused.push({ pkg, reason: 'déconseillée : confirmation requise' });
