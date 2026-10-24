@@ -16,6 +16,17 @@ function adb(args, { timeout = 15000 } = {}) {
   });
 }
 
+// Même chose, mais la sortie reste binaire (captures d'écran)
+function adbBuffer(args, { timeout = 15000 } = {}) {
+  return new Promise((resolve) => {
+    execFile(ADB, args, { timeout, maxBuffer: 64 * 1024 * 1024, encoding: 'buffer' }, (error, stdout, stderr) => {
+      let err = (stderr || '').toString().trim();
+      if (error && error.killed) err = err || 'délai dépassé';
+      resolve({ ok: !error, out: stdout || Buffer.alloc(0), err });
+    });
+  });
+}
+
 // Une cible "agent:<id>" passe par l'appli ATVM Connect installée sur la TV
 function shell(target, cmd, opts = {}) {
   if (target.startsWith('agent:')) return require('./agents').call(target.slice(6), cmd, opts.timeout || 15000);
@@ -64,4 +75,4 @@ function parseKv(text) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-module.exports = { adb, shell, state, connect, disconnect, pair, parseKv, sleep };
+module.exports = { ADB, adb, adbBuffer, shell, state, connect, disconnect, pair, parseKv, sleep };

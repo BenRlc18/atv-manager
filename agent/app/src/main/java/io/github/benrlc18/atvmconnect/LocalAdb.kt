@@ -153,6 +153,9 @@ class LocalAdb(context: Context) {
         }
     }
 
+    /** Nouvelle connexion ADB indépendante (vidéo, captures) : n'attend pas les commandes en cours. */
+    fun connect(): Dadb = Dadb.create(HOST, PORT, keyPair)
+
     /** Abandonne la tentative en cours (la fenêtre affichée se ferme) pour en relancer une neuve. */
     fun cancelAttempt() {
         reset()

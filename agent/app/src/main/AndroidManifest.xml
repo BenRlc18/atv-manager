@@ -5,6 +5,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Bandeau « dépannage en cours » : accordé par ADB (appops), aucune demande à l'utilisateur -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <uses-feature android:name="android.software.leanback" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
@@ -31,6 +33,12 @@
         <service
             android:name=".AgentService"
             android:exported="false" />
+
+        <!-- Lancé par le shell ADB d'ATV Manager ; la permission DUMP n'est accordée qu'au shell et au système -->
+        <service
+            android:name=".BannerService"
+            android:exported="true"
+            android:permission="android.permission.DUMP" />
 
         <receiver
             android:name=".BootReceiver"

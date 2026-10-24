@@ -11,6 +11,7 @@ const auth = require('./lib/auth');
 const AG = require('./lib/agents');
 const TS = require('./lib/tailscale');
 const APPS = require('./lib/apps');
+const R = require('./lib/remote');
 
 // Réglages renvoyés à l'interface : la clé API Tailscale n'en sort jamais
 const publicSettings = (s) => ({
@@ -301,6 +302,33 @@ route('POST', '/api/devices/:id/open-store', 'user', async (ctx, p) => {
   return O.openStore(target, String(ctx.body.pkg || ''), dev);
 });
 
+// ---------- Dépannage à distance (toute personne ayant accès à la TV)
+// Pendant une session, la cible est gardée en mémoire : chaque touche part sans reconnexion
+async function remoteTarget(user, rawId) {
+  const id = decodeURIComponent(rawId);
+  const dev = store.devices()[id];
+  if (!dev || !canSee(user, dev)) throw fail('Appareil inconnu.', 404);
+  const t = R.sessionTarget(id);
+  return t ? { dev, target: t } : needDevice(user, rawId);
+}
+
+route('POST', '/api/devices/:id/remote/start', 'user', async (ctx, p) => {
+  const { dev, target } = await needDevice(ctx.user, p.id);
+  return R.start(dev, target, ctx.user);
+});
+route('POST', '/api/devices/:id/remote/stop', 'user', async (ctx, p) => {
+  const dev = store.devices()[decodeURIComponent(p.id)];
+  if (!dev || !canSee(ctx.user, dev)) throw fail('Appareil inconnu.', 404);
+  return R.stop(dev);
+});
+route('POST', '/api/devices/:id/remote/key', 'user', async (ctx, p) => R.key((await remoteTarget(ctx.user, p.id)).target, String(ctx.body.key || '')));
+route('POST', '/api/devices/:id/remote/text', 'user', async (ctx, p) => R.text((await remoteTarget(ctx.user, p.id)).target, ctx.body.text));
+route('POST', '/api/devices/:id/remote/tap', 'user', async (ctx, p) => R.tap((await remoteTarget(ctx.user, p.id)).target, ctx.body.x, ctx.body.y));
+route('GET', '/api/devices/:id/remote/screen', 'user', async (ctx, p) => {
+  const shot = await R.screenshot((await remoteTarget(ctx.user, p.id)).target);
+  return { raw: shot.data, contentType: shot.type };
+});
+
 // ---------- Réglages et comptes (administrateur)
 route('POST', '/api/devices/:id/ts-isolate', 'admin', async (ctx, p) => {
   const all = store.devices();
@@ -379,6 +407,10 @@ const server = http.createServer(async (req, res) => {
       fs.createReadStream(local).pipe(res);
     });
   }
+  // Module vidéo (scrcpy-server, Apache 2.0), téléchargé par ATVM Connect pour le dépannage à distance
+  if (url.pathname === `/scrcpy-server-v${R.SCRCPY_VERSION}.jar`) {
+    return fs.readFile(R.SCRCPY_JAR, (err, data) => (err ? send(res, 404, 'Introuvable') : send(res, 200, data, { 'Content-Type': 'application/java-archive' })));
+  }
   if (!url.pathname.startsWith('/api/')) return serveStatic(req, res);
 
   const r = routes.find((x) => x.method === req.method && x.re.test(url.pathname));
@@ -397,6 +429,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST') ctx.body = await readBody(req);
     const params = r.re.exec(url.pathname).groups || {};
     const out = await r.handler(ctx, params);
+    if (out && Buffer.isBuffer(out.raw)) return send(res, 200, out.raw, { 'Content-Type': out.contentType });
     send(res, 200, out, ctx.cookie ? { 'Set-Cookie': ctx.cookie } : {});
   } catch (e) {
     const code = Number.isInteger(e.code) && e.code >= 400 && e.code < 600 ? e.code : 500;
@@ -407,9 +440,24 @@ const server = http.createServer(async (req, res) => {
 
 // Tunnel WebSocket des TV équipées d'ATVM Connect
 server.on('upgrade', (req, socket) => {
-  if (req.url.split('?')[0] === '/api/agent/ws') AG.handleUpgrade(req, socket);
-  else socket.destroy();
+  const p = req.url.split('?')[0];
+  if (p === '/api/agent/ws') return AG.handleUpgrade(req, socket);
+  const m = /^\/api\/devices\/([^/]+)\/remote\/video$/.exec(p);
+  if (m) return remoteVideo(req, socket, m[1]).catch(() => socket.destroy());
+  socket.destroy();
 });
+
+// Vidéo du dépannage : session ouverte, même site uniquement (pas de connexion depuis une autre page web)
+async function remoteVideo(req, socket, rawId) {
+  const user = auth.currentUser(req);
+  const origin = req.headers.origin;
+  let sameSite = true;
+  try { sameSite = !origin || new URL(origin).host === req.headers.host; } catch { sameSite = false; }
+  if (!user || !sameSite) { socket.destroy(); return; }
+  const { target } = await remoteTarget(user, rawId);
+  const ws = AG.wsAccept(req, socket);
+  if (ws) R.video(target, ws);
+}
 
 server.requestTimeout = 0; // le scan et l'optimisation peuvent durer plus d'une minute
 server.listen(PORT, () => {

@@ -36,6 +36,9 @@ class AgentService : Service() {
         .build()
     private val main = Handler(Looper.getMainLooper())
     private val exec = Executors.newSingleThreadExecutor()
+    // Captures du dépannage : en parallèle des commandes, chacune sur sa propre connexion ADB
+    private val remoteExec = Executors.newCachedThreadPool()
+    private val remote by lazy { Remote(this, adb, prefs) { url, file -> download(url, file) } }
     private var socket: WebSocket? = null
     private var retryDelay = 5_000L
     private var stopped = false
@@ -116,6 +119,9 @@ class AgentService : Service() {
         socket?.close(1000, "arrêt")
         exec.shutdownNow()
         authExec.shutdownNow()
+        remote.stopAll()
+        remoteExec.shutdownNow()
+        Banner.hide(this)
         adb.close()
         status = Status()
         super.onDestroy()
@@ -186,6 +192,31 @@ class AgentService : Service() {
                             webSocket.send(res.toString())
                         }
                     }
+                    // Dépannage à distance : capture, bandeau sur l'écran, vidéo
+                    "screenshot" -> {
+                        val id = m.optInt("id")
+                        remoteExec.execute {
+                            val res = JSONObject().put("type", "result").put("id", id)
+                            try {
+                                res.put("ok", true).put("out", remote.screenshot(m.optInt("maxSize", 1280), m.optInt("quality", 70))).put("err", "")
+                            } catch (e: Exception) {
+                                res.put("ok", false).put("out", "").put("err", "Capture impossible : ${e.message ?: e.javaClass.simpleName}")
+                            }
+                            webSocket.send(res.toString())
+                        }
+                    }
+                    "banner" -> {
+                        val ttl = m.optLong("ttl", 90_000L)
+                        if (!m.optBoolean("on")) Banner.hide(this@AgentService)
+                        else if (android.provider.Settings.canDrawOverlays(this@AgentService)) Banner.show(this@AgentService, ttl)
+                        // Droit d'affichage par-dessus les autres applis : accordé par l'ADB local, sans rien demander
+                        else exec.execute {
+                            adb.shell("appops set $packageName SYSTEM_ALERT_WINDOW allow", 10_000L)
+                            Banner.show(this@AgentService, ttl)
+                        }
+                    }
+                    "video-start" -> remote.startVideo(webSocket, m.optInt("sid"), m)
+                    "video-stop" -> remote.stopVideo(m.optInt("sid"))
                     // Nouvelle version d'ATVM Connect disponible sur le serveur
                     "update" -> {
                         val version = m.optString("version")
@@ -204,9 +235,9 @@ class AgentService : Service() {
             }
 
             // Les événements d'une ancienne connexion (remplacée par « Vérifier la connexion ») sont ignorés
-            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) { if (gen == wsGen) retry("Serveur injoignable, nouvel essai bientôt.") }
+            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) { if (gen == wsGen) { remote.stopAll(); retry("Serveur injoignable, nouvel essai bientôt.") } }
 
-            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) { if (gen == wsGen) retry("Connexion fermée, nouvel essai bientôt.") }
+            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) { if (gen == wsGen) { remote.stopAll(); retry("Connexion fermée, nouvel essai bientôt.") } }
         })
     }
 

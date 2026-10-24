@@ -27,6 +27,7 @@ const ICONS = {
   users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 20a6.5 6.5 0 0 0-2.5-5.1"/>',
   copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>',
   home: '<path d="M4 11 12 4l8 7"/><path d="M6 9.5V20h12V9.5"/><path d="M10 20v-5h4v5"/>',
+  remote: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/><path d="m10 8.5 4 1.5-4 1.5z"/>',
 };
 const ic = (n) => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n] || ''}</svg>`;
 
@@ -235,11 +236,16 @@ const routes = [
   [/^\/settings\/?$/, viewSettings, 'settings'],
   [/^\/add\/?$/, viewAddRemote, 'devices'],
   [/^\/tv\/([^/]+)\/level\/([123])\/?$/, viewOptimize, 'devices'],
+  [/^\/tv\/([^/]+)\/remote\/?$/, viewRemote, 'devices'],
   [/^\/tv\/([^/]+)\/?$/, viewDevice, 'devices'],
 ];
 
+// Page qui garde des ressources ouvertes (dépannage : vidéo, session) : libérées au changement de page
+let pageCleanup = null;
+
 async function render() {
   const rid = ++renderId;
+  if (pageCleanup) { const fn = pageCleanup; pageCleanup = null; fn(); }
   const hash = location.hash.replace(/^#/, '') || '/';
   const invite = /^\/invite\/([A-Za-z0-9]+)\/?$/.exec(hash);
 
@@ -687,6 +693,15 @@ async function viewDevice(rid, id) {
             <span style="min-width:0"><b>${esc(L[n]?.title || '')}</b><span class="sm t2" style="display:block">${does}</span><span class="sm t3" style="display:block">Tu perds : ${loses}</span></span>
             <span class="t3">${ic('chevron')}</span>
           </a>`).join('')}
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="panel">
+        <div class="setting">
+          <div><div class="lbl">${ic('remote')}Dépannage à distance</div><p class="desc">Voir l'écran de la TV en direct et la piloter avec une télécommande. Un bandeau « Accès à distance : dépannage en cours » s'affiche sur la TV pendant toute la session.</p></div>
+          <a class="btn sm primary" href="#/tv/${encodeURIComponent(id)}/remote">${ic('remote')}Ouvrir</a>
+        </div>
       </div>
     </section>
 
@@ -1245,6 +1260,219 @@ async function viewOptimize(rid, id, levelStr) {
 // Ajouter une TV à distance avec l'appli ATVM Connect
 // =====================================================================
 let pairTimer = null;
+// =====================================================================
+// Dépannage à distance : écran en direct (vidéo, ou images si le navigateur ne décode pas la vidéo) + télécommande
+const PAD = [
+  ['power', '⏻', 'Veille'], ['settings', '⚙', 'Paramètres'], ['recent', '▤', 'Applis récentes'],
+  ['back', '↩', 'Retour'], ['home', '⌂', 'Accueil'], ['menu', '☰', 'Menu'],
+  ['voldown', '🔉', 'Volume −'], ['mute', '🔇', 'Muet'], ['volup', '🔊', 'Volume +'],
+  ['rewind', '⏪', 'Retour rapide'], ['playpause', '⏯', 'Lecture / pause'], ['forward', '⏩', 'Avance rapide'],
+];
+const PAD_KEYS = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right', Enter: 'ok', Escape: 'back', Backspace: 'back', Home: 'home', '+': 'volup', '-': 'voldown', ' ': 'playpause' };
+
+async function viewRemote(rid, id) {
+  const d = S.devices.find((x) => x.id === id);
+  if (!d) throw new Error("Cette TV n'est plus enregistrée.");
+  const base = `/api/devices/${encodeURIComponent(id)}/remote`;
+  const canVideo = typeof window.VideoDecoder === 'function';
+
+  $app.innerHTML = `
+    ${crumbs([['Appareils', '#/'], [displayName(d), `#/tv/${encodeURIComponent(id)}`], ['Dépannage']])}
+    <div class="page-head"><div class="lead"><h1>Dépannage à distance</h1>
+      <p class="t2 sm">Tant que cette page est ouverte, la TV affiche le bandeau « Accès à distance : dépannage en cours ».</p></div></div>
+    <div class="remote-grid">
+      <div class="panel screen-panel">
+        <div class="screen-box" id="rv-box">
+          <canvas id="rv-canvas" hidden></canvas><img id="rv-img" alt="Écran de la TV" hidden>
+          <div class="screen-msg" id="rv-msg"><span class="spin"></span><span>Connexion à la TV…</span></div>
+        </div>
+        <div class="screen-bar">
+          <div class="seg" role="group" aria-label="Affichage">
+            <button data-mode="video" ${canVideo ? '' : 'disabled title="Ton navigateur ne sait pas décoder la vidéo ici (il faut une adresse en https)."'}>Vidéo</button>
+            <button data-mode="images">Images</button>
+          </div>
+          <span class="sm t3" id="rv-info"></span>
+          <button class="btn sm quiet" id="rv-full">Plein écran</button>
+        </div>
+      </div>
+      <div class="panel pad">
+        <div class="dpad">
+          <span></span><button class="btn" data-key="up" aria-label="Haut">▲</button><span></span>
+          <button class="btn" data-key="left" aria-label="Gauche">◀</button><button class="btn primary ok" data-key="ok">OK</button><button class="btn" data-key="right" aria-label="Droite">▶</button>
+          <span></span><button class="btn" data-key="down" aria-label="Bas">▼</button><span></span>
+        </div>
+        <div class="pad-keys">${PAD.map(([k, label, title]) => `<button class="btn" data-key="${k}" title="${esc(title)}" aria-label="${esc(title)}">${label}</button>`).join('')}</div>
+        <form class="pad-text" id="rv-text">
+          <input class="input" name="t" placeholder="Texte à taper sur la TV" autocomplete="off" maxlength="500">
+          <button class="btn sm">Envoyer</button>
+        </form>
+        <p class="sm t3">Clavier : flèches, Entrée = OK, Échap = Retour, Début = Accueil, +/− = volume, Espace = pause. Un clic sur l'écran appuie à cet endroit.</p>
+      </div>
+    </div>`;
+
+  let alive = true;
+  let mode = canVideo ? 'video' : 'images';
+  let ws = null;
+  let decoder = null;
+  const canvas = $('#rv-canvas');
+  const img = $('#rv-img');
+  const msg = (text, spin = false) => {
+    const el = $('#rv-msg');
+    if (!el) return;
+    el.hidden = !text;
+    el.innerHTML = text ? `${spin ? '<span class="spin"></span>' : ''}<span>${esc(text)}</span>` : '';
+  };
+  const info = (t) => { const el = $('#rv-info'); if (el) el.textContent = t; };
+
+  // Session : ouvre le bandeau sur la TV, puis le garde affiché tant que la page est ouverte
+  try { await api(`${base}/start`, { method: 'POST' }); } catch (e) { if (rid === renderId) msg(e.message); return; }
+  if (rid !== renderId) { fetch(`${base}/stop`, { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' }, body: '{}' }); return; }
+  const beat = setInterval(() => api(`${base}/start`, { method: 'POST' }).catch(() => {}), 30000);
+  const stopSession = () => fetch(`${base}/stop`, { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' }, body: '{}' }).catch(() => {});
+  window.addEventListener('pagehide', stopSession);
+
+  // --- Vidéo : flux H.264 (scrcpy) décodé par le navigateur
+  function stopVideo() {
+    if (ws) { ws.onclose = null; ws.close(); ws = null; }
+    if (decoder && decoder.state !== 'closed') decoder.close();
+    decoder = null;
+  }
+  function startVideo() {
+    stopVideo();
+    msg('Démarrage de la vidéo…', true);
+    let config = null;
+    let codec = '';
+    let waitKey = true;
+    let frames = 0;
+    let lastInfo = performance.now();
+    const ctx = canvas.getContext('2d');
+    decoder = new VideoDecoder({
+      output: (frame) => {
+        if (canvas.width !== frame.displayWidth) { canvas.width = frame.displayWidth; canvas.height = frame.displayHeight; }
+        ctx.drawImage(frame, 0, 0);
+        frame.close();
+        if (canvas.hidden) { canvas.hidden = false; img.hidden = true; msg(''); }
+        frames += 1;
+        const now = performance.now();
+        if (now - lastInfo > 2000) { info(`Vidéo · ${Math.round((frames * 1000) / (now - lastInfo))} images/s`); frames = 0; lastInfo = now; }
+      },
+      error: () => { if (alive && mode === 'video') fallback('Le navigateur n’arrive pas à décoder la vidéo de cette TV.'); },
+    });
+    const sock = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}${base}/video`);
+    ws = sock;
+    sock.binaryType = 'arraybuffer';
+    sock.onmessage = (e) => {
+      if (typeof e.data === 'string') {
+        const m = JSON.parse(e.data);
+        if (m.type === 'error') fallback(m.message);
+        else if (m.type === 'meta' && m.codec !== 'h264') fallback('Format vidéo non pris en charge.');
+        return;
+      }
+      const u8 = new Uint8Array(e.data);
+      const flags = u8[0];
+      const data = u8.subarray(1);
+      if (flags & 1) {
+        config = data.slice();
+        // Profil et niveau lus dans le SPS (octets qui suivent l'en-tête NAL 0x67)
+        const i = config.findIndex((b, k) => k > 2 && (b & 0x1f) === 7 && config[k - 1] === 1 && config[k - 2] === 0);
+        const hex = (b) => b.toString(16).padStart(2, '0');
+        const c = i > 0 ? `avc1.${hex(config[i + 1])}${hex(config[i + 2])}${hex(config[i + 3])}` : 'avc1.42e01f';
+        if (c !== codec) { codec = c; decoder.configure({ codec, optimizeForLatency: true }); }
+        waitKey = true;
+        return;
+      }
+      if (!codec || decoder.state !== 'configured') return;
+      const key = (flags & 2) !== 0;
+      if (waitKey && !key) return;
+      waitKey = false;
+      let chunk = data;
+      if (key && config) { chunk = new Uint8Array(config.length + data.length); chunk.set(config); chunk.set(data, config.length); }
+      decoder.decode(new EncodedVideoChunk({ type: key ? 'key' : 'delta', timestamp: Math.round(performance.now() * 1000), data: chunk }));
+    };
+    sock.onclose = () => { if (alive && mode === 'video' && ws === sock) fallback('La vidéo s’est arrêtée.'); };
+  }
+  function fallback(reason) {
+    stopVideo();
+    toast(`${reason} Passage en mode images.`, 'error');
+    setMode('images');
+  }
+
+  // --- Images : une capture d'écran après l'autre
+  let shotLoop = 0;
+  async function startImages() {
+    const loop = ++shotLoop;
+    let url = '';
+    msg('Capture de l’écran…', true);
+    while (alive && mode === 'images' && loop === shotLoop) {
+      const t0 = performance.now();
+      try {
+        const res = await fetch(`${base}/screen`, { credentials: 'same-origin' });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `Erreur ${res.status}`);
+        const blob = await res.blob();
+        if (!alive || loop !== shotLoop) break;
+        if (url) URL.revokeObjectURL(url);
+        url = URL.createObjectURL(blob);
+        img.src = url;
+        img.hidden = false;
+        canvas.hidden = true;
+        msg('');
+        info(`Images · ${((performance.now() - t0) / 1000).toFixed(1).replace('.', ',')} s par image`);
+        await new Promise((r) => setTimeout(r, 700));
+      } catch (e) {
+        msg(e.message);
+        await new Promise((r) => setTimeout(r, 3000));
+      }
+    }
+    if (url) URL.revokeObjectURL(url);
+  }
+
+  function setMode(m) {
+    mode = m;
+    $$('[data-mode]').forEach((b) => b.classList.toggle('on', b.dataset.mode === m));
+    if (m === 'video') { shotLoop += 1; startVideo(); } else { stopVideo(); startImages(); }
+  }
+  $$('[data-mode]').forEach((b) => b.addEventListener('click', () => { if (b.dataset.mode !== mode) setMode(b.dataset.mode); }));
+
+  // --- Télécommande
+  async function press(key, btn) {
+    if (key === 'power' && !(await confirmBox({ title: 'Mettre la TV en veille ?', html: '<p>La TV s’éteint : il faudra peut-être la rallumer sur place.</p>', confirm: 'Mettre en veille' }))) return;
+    btn?.classList.add('pressed');
+    try { await api(`${base}/key`, { method: 'POST', body: { key } }); } catch (e) { toast(e.message, 'error'); }
+    btn?.classList.remove('pressed');
+  }
+  $$('[data-key]').forEach((b) => b.addEventListener('click', () => press(b.dataset.key, b)));
+  const onKey = (e) => {
+    if (e.target.closest && e.target.closest('input, textarea, select') || e.ctrlKey || e.altKey || e.metaKey) return;
+    const k = PAD_KEYS[e.key];
+    if (!k) return;
+    e.preventDefault();
+    press(k, $(`[data-key="${k}"]`));
+  };
+  document.addEventListener('keydown', onKey);
+  $('#rv-text').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const input = e.currentTarget.elements.t;
+    try { await api(`${base}/text`, { method: 'POST', body: { text: input.value } }); input.value = ''; } catch (err) { toast(err.message, 'error'); }
+  });
+  // Appui à l'endroit cliqué sur l'écran
+  [canvas, img].forEach((el) => el.addEventListener('click', (e) => {
+    const r = el.getBoundingClientRect();
+    api(`${base}/tap`, { method: 'POST', body: { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height } }).catch((err) => toast(err.message, 'error'));
+  }));
+  $('#rv-full').addEventListener('click', () => { const box = $('#rv-box'); if (document.fullscreenElement) document.exitFullscreen(); else box.requestFullscreen?.(); });
+
+  pageCleanup = () => {
+    alive = false;
+    shotLoop += 1;
+    clearInterval(beat);
+    stopVideo();
+    document.removeEventListener('keydown', onKey);
+    window.removeEventListener('pagehide', stopSession);
+    stopSession();
+  };
+  setMode(mode);
+}
+
 async function viewAddRemote(rid) {
   clearInterval(pairTimer);
   const known = new Set(S.devices.map((d) => d.id));

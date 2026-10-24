@@ -107,3 +107,12 @@ MIT
 ## APK personnalisée pour ton serveur
 
 L'APK publique est **générique** : elle trouve ATV Manager sur le réseau local, ou demande l'adresse du serveur. Pour que tes proches n'aient **que le code à taper**, compile ta propre APK avec ton serveur intégré (variable de dépôt `ATVM_DEFAULT_SERVER`, par exemple dans un dépôt privé) et dépose-la dans `data/connect.apk` : ATV Manager la sert alors sur `/connect.apk`. Signe-la avec la même clé que l'APK publique pour pouvoir passer de l'une à l'autre sans désinstaller.
+
+## Dépannage à distance
+
+Sur la fiche d’une TV, « Dépannage à distance » affiche son écran en direct et une télécommande (croix, OK, retour, accueil, volume, saisie de texte, appui à l’écran). Ça marche en ADB direct (réseau local, Tailscale) comme à travers ATVM Connect.
+
+- **Vidéo** : ATV Manager envoie [scrcpy-server](https://github.com/Genymobile/scrcpy) 3.1 (Apache 2.0, dans `server/vendor/`) sur la TV et relaie son flux H.264, décodé par le navigateur (WebCodecs, donc en https ou sur localhost). Environ 20 images/s pour 1 à 3 Mbit/s.
+- **Images** : à défaut, une capture d’écran après l’autre (réduite en JPEG par ATVM Connect).
+- **Bandeau** : tant que la page est ouverte, la TV affiche « Accès à distance : dépannage en cours » (ATVM Connect 0.11.0 et plus ; sur une TV en ADB direct, ATV Manager installe ATVM Connect pour l’afficher). Il disparaît seul 90 s après la fermeture de la page.
+- Les applis protégées (Netflix, Disney+…) apparaissent en noir : c’est voulu par Android.

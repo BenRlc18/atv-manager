@@ -55,11 +55,14 @@ class WsConn extends EventEmitter {
       if (op === 0x9) { this.frame(0xA, payload); continue; }
       if (op === 0xA) { this.alive = true; continue; }
       if (op === 0x1 || op === 0x2 || op === 0x0) {
+        if (op !== 0x0) this.binary = op === 0x2;
         this.parts.push(payload);
         if (fin) {
-          const msg = Buffer.concat(this.parts).toString('utf8');
+          const data = Buffer.concat(this.parts);
           this.parts = [];
-          this.emit('message', msg);
+          // Trames binaires : flux vidéo relayé par ATVM Connect
+          if (this.binary) this.emit('binary', data);
+          else this.emit('message', data.toString('utf8'));
         }
       }
     }
@@ -184,6 +187,51 @@ function install(agentId, url, timeout = 300000) {
   });
 }
 
+// ---------------------------------------------------------------------
+// Dépannage à distance (ATVM Connect 0.11.0 et plus)
+// ---------------------------------------------------------------------
+// Capture d'écran réduite en JPEG par l'appli (réponse en base64 dans « out »)
+function screenshot(agentId, timeout = 30000) {
+  const o = online.get(agentId);
+  if (!o) return Promise.resolve({ ok: false, out: '', err: 'TV hors ligne' });
+  const id = ++o.seq;
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => { o.pending.delete(id); resolve({ ok: false, out: '', err: 'délai dépassé' }); }, timeout);
+    o.pending.set(id, (r) => { clearTimeout(timer); resolve(r); });
+    o.conn.send({ type: 'screenshot', id, maxSize: 1280, quality: 70 });
+  });
+}
+
+// Bandeau « Accès à distance : dépannage en cours » sur la TV ; il disparaît seul après ttl ms sans rafraîchissement
+function banner(agentId, on, ttl) {
+  online.get(agentId)?.conn.send({ type: 'banner', on: !!on, ttl });
+}
+
+// Vidéo : l'appli lance scrcpy-server sur la TV et relaie le flux en trames binaires (4 octets d'identifiant + données)
+const videos = new Map(); // sid -> { agentId, onData, onEnd }
+let videoSeq = 0;
+function videoStart(agentId, opts, onData, onEnd) {
+  const o = online.get(agentId);
+  const sid = ++videoSeq;
+  if (!o) { setImmediate(onEnd); return sid; }
+  videos.set(sid, { agentId, onData, onEnd });
+  o.conn.send({ type: 'video-start', sid, ...opts });
+  return sid;
+}
+function videoStop(agentId, sid) {
+  if (!videos.delete(sid)) return;
+  online.get(agentId)?.conn.send({ type: 'video-stop', sid });
+}
+function videoEnd(sid) {
+  const v = videos.get(sid);
+  if (!v) return;
+  videos.delete(sid);
+  v.onEnd();
+}
+
+// Version de l'appli au moins égale à min
+const supports = (version, min) => !!version && !isNewer(min, version);
+
 // Journal (docker logs atv-manager) : une ligne par changement d'état d'une TV ATVM Connect
 const log = (a, text) => console.log(`[ATVM Connect] ${(a && a.name) || 'TV'} (${(a && a.id) || '?'}) : ${text}`);
 
@@ -234,12 +282,18 @@ setInterval(() => { for (const id of online.keys()) offerUpdate(id).catch(() => 
 let onAgentReady = null;
 const setReadyHandler = (fn) => { onAgentReady = fn; };
 
-function handleUpgrade(req, socket) {
+// Poignée de main WebSocket ; renvoie la connexion, ou null si la requête n'en est pas une
+function wsAccept(req, socket) {
   const key = req.headers['sec-websocket-key'];
-  if (!key || String(req.headers.upgrade || '').toLowerCase() !== 'websocket') { socket.destroy(); return; }
+  if (!key || String(req.headers.upgrade || '').toLowerCase() !== 'websocket') { socket.destroy(); return null; }
   const accept = crypto.createHash('sha1').update(key + WS_GUID).digest('base64');
   socket.write(`HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`);
-  const conn = new WsConn(socket);
+  return new WsConn(socket);
+}
+
+function handleUpgrade(req, socket) {
+  const conn = wsAccept(req, socket);
+  if (!conn) return;
   let agentId = null;
   const hello = setTimeout(() => conn.close(4000), 10000);
 
@@ -276,13 +330,23 @@ function handleUpgrade(req, socket) {
       }
     } else if (m.type === 'update-status') {
       log(agents()[agentId], `mise à jour ${String(m.version || '')} : ${String(m.message || '').slice(0, 200)}`);
+    } else if (m.type === 'video-end') {
+      if (m.message) log(agents()[agentId], `vidéo arrêtée : ${String(m.message).slice(0, 200)}`);
+      videoEnd(Number(m.sid));
     }
+  });
+
+  conn.on('binary', (data) => {
+    if (!agentId || data.length < 4) return;
+    const v = videos.get(data.readUInt32BE(0));
+    if (v && v.agentId === agentId) v.onData(data.subarray(4));
   });
 
   conn.on('close', () => {
     clearTimeout(hello);
     const o = agentId && online.get(agentId);
     if (o && o.conn === conn) {
+      for (const [sid, v] of videos) if (v.agentId === agentId) videoEnd(sid);
       for (const cb of o.pending.values()) cb({ ok: false, out: '', err: 'TV déconnectée' });
       online.delete(agentId);
       log(agents()[agentId], 'déconnectée');
@@ -301,4 +365,7 @@ function pending() {
     .sort((x, y) => String(y.createdAt).localeCompare(String(x.createdAt)));
 }
 
-module.exports = { handleUpgrade, createPairCode, pair, revoke, call, install, isOnline, status, agents, saveAgents, setReadyHandler, pending };
+module.exports = {
+  handleUpgrade, wsAccept, createPairCode, pair, revoke, call, install, isOnline, status, agents, saveAgents, setReadyHandler, pending,
+  screenshot, banner, videoStart, videoStop, supports,
+};
