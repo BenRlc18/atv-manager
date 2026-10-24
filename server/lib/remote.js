@@ -64,22 +64,27 @@ async function tap(target, x, y) {
   return { ok: true };
 }
 
+// Une appli protégée (Orange TV, Netflix…) au premier plan : Android renvoie une capture vide
+const PROTECTED = "L'appli affichée protège son écran (Orange TV, Netflix…) : Android empêche de le capturer. Appuie sur Accueil pour revenir à un écran visible.";
+
 // Capture d'écran : PNG en ADB direct ; JPEG réduit par ATVM Connect (0.11.0 et plus), sinon PNG en base64
 async function screenshot(target) {
   if (!isAgent(target)) {
     const r = await A.adbBuffer(['-s', target, 'exec-out', 'screencap -p'], { timeout: 20000 });
-    if (!r.ok || r.out.length < 100) throw err(r.err || "Capture d'écran impossible.", 409);
+    if (!r.ok) throw err(r.err || "Capture d'écran impossible.", 409);
+    if (r.out.length < 100) throw err(PROTECTED, 409);
     return { type: 'image/png', data: r.out };
   }
   const st = AG.status(agentId(target));
   if (AG.supports(st.version, '0.11.0')) {
     const r = await AG.screenshot(agentId(target));
-    if (!r.ok) throw err(r.err || "Capture d'écran impossible.", 409);
+    if (!r.ok) throw err(/illisible/.test(r.err) ? PROTECTED : r.err || "Capture d'écran impossible.", 409);
     return { type: 'image/jpeg', data: Buffer.from(r.out, 'base64') };
   }
   const r = await A.shell(target, 'screencap -p | base64', { timeout: 30000 });
   const data = Buffer.from(r.out.replace(/\s+/g, ''), 'base64');
-  if (!r.ok || data.length < 100) throw err(r.err || "Capture d'écran impossible.", 409);
+  if (!r.ok) throw err(r.err || "Capture d'écran impossible.", 409);
+  if (data.length < 100) throw err(PROTECTED, 409);
   return { type: 'image/png', data };
 }
 

@@ -1307,6 +1307,7 @@ async function viewRemote(rid, id) {
           <button class="btn sm">Envoyer</button>
         </form>
         <p class="sm t3">Clavier : flèches, Entrée = OK, Échap = Retour, Début = Accueil, +/− = volume, Espace = pause. Un clic sur l'écran appuie à cet endroit.</p>
+        <p class="sm t3">Écran noir ? Les applis protégées (Orange TV, Netflix, Disney+…) interdisent la capture : appuie sur Accueil.</p>
       </div>
     </div>`;
 
