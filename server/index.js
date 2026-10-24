@@ -288,6 +288,14 @@ route('POST', '/api/devices/:id/restore', 'user', async (ctx, p) => {
   return r;
 });
 
+// Remettre le lanceur d'origine à tout moment (sans passer par l'historique) ; corps vide
+route('POST', '/api/devices/:id/reset-launcher', 'user', async (ctx, p) => {
+  const { dev, target } = await needDevice(ctx.user, p.id);
+  const r = await O.resetLauncher(target, dev);
+  try { await runAudit(dev, target); } catch { /* idem */ }
+  return r;
+});
+
 route('POST', '/api/devices/:id/open-store', 'user', async (ctx, p) => {
   const { dev, target } = await needDevice(ctx.user, p.id);
   return O.openStore(target, String(ctx.body.pkg || ''), dev);

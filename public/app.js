@@ -26,6 +26,7 @@ const ICONS = {
   logout: '<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 17l-5-5 5-5M5 12h11"/>',
   users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 20a6.5 6.5 0 0 0-2.5-5.1"/>',
   copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>',
+  home: '<path d="M4 11 12 4l8 7"/><path d="M6 9.5V20h12V9.5"/><path d="M10 20v-5h4v5"/>',
 };
 const ic = (n) => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n] || ''}</svg>`;
 
@@ -53,7 +54,7 @@ const RISK = {
   unknown: { label: 'Inconnue', dot: '' },
 };
 
-// ---------- Textes CleanYourTV (regroupés pour le futur sélecteur de langue FR/EN)
+// ---------- Textes regroupés pour le futur sélecteur de langue FR/EN (CleanYourTV, lanceur d'origine)
 const CYT_URL = 'https://github.com/Gathin23/cleanyourtv';
 const TXT = {
   fr: {
@@ -66,9 +67,36 @@ const TXT = {
     cytHelp: 'Ces applis viennent de listes partagées par la communauté pour chaque modèle de TV. Tu gagnes des suggestions adaptées à ta TV ; vérifie quand même ce que tu perds avant de cocher.',
     cytCredit: 'Listes de paquets par modèle :',
     cytCreditBy: 'par Gathin (licence MIT)',
+    // Remettre le lanceur d'origine
+    homeTitle: "Écran d'accueil",
+    homeDesc: "Si l'écran d'accueil ne marche plus ou ne plaît pas, remets celui d'origine (Google TV, Android TV ou celui du fabricant). Tu gagnes un accueil qui fonctionne à coup sûr ; tu retrouves aussi ses suggestions et publicités. Le lanceur installé reste disponible dans les applis.",
+    homeBtn: "Remettre le lanceur d'origine",
+    homeBusy: 'Remise en place…',
+    homeConfirmTitle: "Remettre le lanceur d'origine ?",
+    homeConfirm: "L'accueil d'origine (Google TV, Android TV ou celui du fabricant) redeviendra l'écran d'accueil. Le lanceur installé reste disponible dans les applis.",
+    homeConfirmBtn: 'Remettre',
+    homeOk: "Lanceur d'origine remis en place.",
+    homeKo: "Le lanceur d'origine n'a pas pu être remis complètement.",
+    homeNow: 'Bouton Accueil de la télécommande :',
+    homeUnknown: 'non déterminé',
+    homeOld: 'Fonction disponible après la mise à jour du serveur.',
+    homeNames: { google: 'Google TV', atv: 'Android TV' },
+    homeHist: "Lanceur d'origine remis",
+    stockLabel: "Désactiver aussi l'accueil d'origine",
+    stockDesc: "pour libérer le plus de mémoire. Sur certaines TV, un bouton de la télécommande peut ne plus rien faire. Réactivable depuis l'historique ou avec « Remettre le lanceur d'origine ».",
+    stockOff: '(impossible sur cette TV)',
+    stockRivals: 'Seront aussi désactivés, car ils reprendraient le bouton Accueil :',
   },
 };
 const T = TXT.fr;
+// Nom lisible du composant qui reçoit le bouton Accueil (ex. com.google.android.apps.tv.launcherx/.home.HomeActivity)
+const homeName = (comp) => {
+  const c = String(comp || '').trim();
+  if (!c) return '';
+  if (/launcherx/i.test(c)) return T.homeNames.google;
+  if (/tvlauncher|leanback/i.test(c)) return T.homeNames.atv;
+  return c.split('/')[0];
+};
 const isCyt = (a) => a && a.source === 'CleanYourTV';
 // Les notes CleanYourTV sont souvent en anglais : repérage simple (pas d'accent, mots anglais courants).
 const looksEnglish = (s) => {
@@ -662,6 +690,16 @@ async function viewDevice(rid, id) {
       </div>
     </section>
 
+    <section class="section" id="home-reset">
+      <div class="panel">
+        <div class="setting">
+          <div><div class="lbl">${ic('home')}${esc(T.homeTitle)}</div><p class="desc">${esc(T.homeDesc)}</p></div>
+          <button class="btn sm" id="reset-launcher">${ic('undo')}${esc(T.homeBtn)}</button>
+          <div class="more" id="home-result" hidden></div>
+        </div>
+      </div>
+    </section>
+
     <section class="section" id="history"></section>
 
     ${isAdmin() ? '<section class="section" id="share"></section>' : ''}
@@ -685,6 +723,7 @@ async function viewDevice(rid, id) {
     } catch (err) { toast(err.message, 'error'); busy(e.currentTarget, false); }
   });
   bindForget(d);
+  bindResetLauncher(d);
   drawHistory(rid, id);
   loadDeviceStats(rid, id);
 }
@@ -700,6 +739,49 @@ function adminDeviceControls(rid, d) {
       await loadState();
       render();
     } catch (e) { toast(e.message, 'error'); }
+  });
+}
+
+// Remettre le lanceur d'origine, à tout moment, sans passer par l'historique
+function bindResetLauncher(d) {
+  const btn = $('#reset-launcher');
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    if (!(await confirmBox({ title: T.homeConfirmTitle, html: `<p>${esc(T.homeConfirm)}</p>`, confirm: T.homeConfirmBtn }))) return;
+    const out = $('#home-result');
+    const rid = renderId;
+    busy(btn, true, T.homeBusy);
+    out.hidden = true;
+    let r;
+    try {
+      r = await api(`/api/devices/${encodeURIComponent(d.id)}/reset-launcher`, { method: 'POST' });
+    } catch (e) {
+      if (rid !== renderId) return;
+      busy(btn, false);
+      if (e.status === 404 && !(e.data && e.data.error && !/route/i.test(e.data.error))) { // route absente : ancien serveur
+        out.innerHTML = `<div class="note attn">${ic('info')}<div>${esc(T.homeOld)}</div></div>`;
+      } else {
+        r = e.data && Array.isArray(e.data.log) ? { ok: false, ...e.data } : null;
+        if (!r) out.innerHTML = `<div class="note warn">${ic('alert')}<div>${esc(e.message)}</div></div>`;
+      }
+      if (!r) { out.hidden = false; return; }
+    }
+    if (rid !== renderId) return;
+    busy(btn, false);
+    const log = Array.isArray(r.log) ? r.log : [];
+    const ok = r.ok !== false && !log.some((l) => !l.ok);
+    const name = homeName(r.home);
+    out.innerHTML = `
+      <div class="note ${ok ? '' : 'warn'}">${ic(ok ? 'check' : 'alert')}<div class="stack">
+        <b>${esc(ok ? T.homeOk : T.homeKo)}</b>
+        <span>${esc(T.homeNow)} <b class="${name && name === String(r.home).split('/')[0] ? 'mono' : ''}">${esc(name || T.homeUnknown)}</b>${name && name !== r.home ? ` <span class="mono sm t3 home-comp">${esc(r.home)}</span>` : ''}</span>
+      </div></div>
+      ${log.length ? `<ul class="log">${log.map((l) => `<li class="${l.ok ? '' : 'ko'}">${ic(l.ok ? 'check' : 'x')}<span>${esc(l.text)}</span></li>`).join('')}</ul>` : ''}`;
+    out.hidden = false;
+    toast(ok ? T.homeOk : T.homeKo, ok ? '' : 'error');
+    // Rafraîchir l'état (audit) et l'historique
+    drawHistory(rid, d.id);
+    drawAudit(rid, d.id);
   });
 }
 
@@ -839,11 +921,15 @@ async function drawHistory(rid, id) {
   if (rid !== renderId) return;
   const box = $('#history');
   if (!box) return;
-  const active = hist.filter((h) => !h.restored);
+  const active = hist.filter((h) => !h.restored && h.type !== 'reset-launcher');
   box.innerHTML = `
     <div class="section-head"><h2>Historique</h2>${active.length ? `<button class="btn sm" id="restore-all">${ic('undo')}Tout restaurer</button>` : ''}</div>
     <div class="panel">
-      ${hist.length ? hist.map((h, i) => `
+      ${hist.length ? hist.map((h, i) => (h.type === 'reset-launcher' ? `
+        <details class="disclose" ${i === 0 ? 'style="border-top:0"' : ''}>
+          <summary>${ic('chevron')}<span style="flex:1;display:flex;gap:10px;flex-wrap:wrap;align-items:center;color:var(--text)"><b>${esc(T.homeHist)}</b><span class="t2">${esc(fmtDate(h.at))}</span>${h.home && h.home.after ? `<span class="t2">${esc(T.homeNow)} ${esc(homeName(h.home.after))}</span>` : ''}</span><span class="status"><span class="dot ${h.log.some((l) => !l.ok) ? 'bad' : 'ok'}"></span>${h.log.some((l) => !l.ok) ? 'Incomplet' : 'Fait'}</span></summary>
+          <div class="body"><ul class="log">${h.log.map((l) => `<li class="${l.ok ? '' : 'ko'}">${ic(l.ok ? 'check' : 'x')}<span>${esc(l.text)}</span></li>`).join('')}</ul></div>
+        </details>` : `
         <details class="disclose" ${i === 0 ? 'style="border-top:0"' : ''}>
           <summary>${ic('chevron')}<span style="flex:1;display:flex;gap:10px;flex-wrap:wrap;align-items:center;color:var(--text)"><b>N${h.level}</b><span class="t2">${esc(fmtDate(h.at))}</span><span class="t2">${plural(h.apps.length, 'appli')}</span>${h.ramBefore != null && h.ramAfter != null ? `<span class="t3 num">${fmtMb(h.ramBefore)} → ${fmtMb(h.ramAfter)}</span>` : ''}</span><span class="status"><span class="dot ${h.restored ? '' : 'accent'}"></span>${h.restored ? 'Restauré' : 'Actif'}</span></summary>
           <div class="body">
@@ -851,7 +937,7 @@ async function drawHistory(rid, id) {
             ${!h.restored && h.apps.length ? `<div class="section" style="gap:8px"><span class="sm t3">Réactiver une seule appli</span><div class="form-row">${h.apps.map((p) => `<button class="btn sm mono" data-reenable="${esc(h.id)}|${esc(p)}">${esc(p)}</button>`).join('')}</div></div>` : ''}
             ${!h.restored ? `<div><button class="btn sm" data-restore="${esc(h.id)}">${ic('undo')}Annuler cette optimisation</button></div>` : `<p class="sm t3">Restauré le ${esc(fmtDate(h.restoredAt))}.</p>`}
           </div>
-        </details>`).join('') : '<p class="panel-pad t2 sm">Aucune optimisation pour le moment.</p>'}
+        </details>`)).join('') : '<p class="panel-pad t2 sm">Aucune optimisation pour le moment.</p>'}
     </div>`;
 
   const doRestore = async (btn, body, title) => {
@@ -1053,6 +1139,17 @@ async function viewOptimize(rid, id, levelStr) {
       const pkg = c.split('/')[0];
       return choice(pkg, `<span class="mono">${esc(pkg)}</span>`, 'Autre lanceur déjà installé sur la TV.', '<span class="tag">Installé</span>', true);
     }).join('');
+    const sd = l.stockDisable || { allowed: true, why: '', rivals: [] };
+    if (sd.allowed === false) st.disableStock = false;
+    const rivals = sd.allowed !== false && sd.rivals && sd.rivals.length
+      ? `<span class="sm t2" style="display:block;margin-top:4px">${esc(T.stockRivals)} ${sd.rivals.map((p) => `<span class="mono">${esc(p)}</span>`).join(', ')}</span>` : '';
+    const stockRow = sd.allowed === false
+      ? `<div id="stock-row" class="note" ${st.launcher ? '' : 'hidden'}>${ic('info')}<div class="stack">
+          <label class="check is-off"><input type="checkbox" id="disable-stock" disabled><span><b>${esc(T.stockLabel)}</b> <span class="t3">${esc(T.stockOff)}</span></span></label>
+          ${sd.why ? `<span class="sm t2">${esc(sd.why)}</span>` : ''}</div></div>`
+      : `<div id="stock-row" class="note warn" ${st.launcher ? '' : 'hidden'}>${ic('alert')}
+          <label class="check"><input type="checkbox" id="disable-stock" ${st.disableStock ? 'checked' : ''}><span><b>${esc(T.stockLabel)}</b> ${esc(T.stockDesc)}${rivals}</span></label>
+        </div>`;
     return `
       <section class="section">
         <div class="section-head"><h2>Lanceur</h2><button class="btn sm quiet" id="refresh-launchers">${ic('refresh')}Actualiser</button></div>
@@ -1062,9 +1159,7 @@ async function viewOptimize(rid, id, levelStr) {
           ${choice('', "Garder l'accueil actuel", 'Applique seulement le niveau 2.', '', true)}
           ${opts}${others}
         </div>
-        <div id="stock-row" class="note warn" ${st.launcher ? '' : 'hidden'}>${ic('alert')}
-          <label class="check"><input type="checkbox" id="disable-stock" ${st.disableStock ? 'checked' : ''}><span><b>Désactiver aussi l'accueil d'origine</b> pour libérer le plus de mémoire. Sur certaines TV, un bouton de la télécommande peut ne plus rien faire. Réactivable depuis l'historique.</span></label>
-        </div>
+        ${stockRow}
       </section>`;
   };
 

@@ -449,3 +449,15 @@ body.auth-mode main { padding-bottom: 48px; }
 .note.cyt a, .side-foot .credit a, .credit-line a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 .side-foot .credit { line-height: 1.4; }
 .credit-line { margin-top: 24px; }
+
+/* ---------- Remettre le lanceur d'origine */
+#home-reset .lbl svg.i { color: var(--text-3); }
+#home-reset .more:empty { display: none; }
+#home-reset .home-comp { display: block; overflow-wrap: anywhere; margin-top: 2px; }
+@media (max-width: 760px) {
+  #home-reset .setting { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  #home-reset .setting > .btn { justify-self: start; }
+}
+.check.is-off { cursor: not-allowed; color: var(--text-2); }
+.check.is-off input { opacity: .5; }
+#home-result .note:not(.warn) svg.i { color: var(--ok); }

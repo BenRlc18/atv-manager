@@ -75,6 +75,48 @@ async function homeActivities(target) {
   return component(r.out).filter((c) => !/FallbackHome|ResolverActivity/.test(c));
 }
 
+// Activité au premier plan (après un appui sur Accueil), ex. « com.overdevs.at4k/.MainActivity » ; '' si illisible
+async function resumedActivity(target) {
+  const r = await A.shell(target, 'dumpsys activity activities | grep -E "topResumedActivity|mResumedActivity"', { timeout: 10000 });
+  const m = r.out.match(/u\d+ ([\w.]+\/[\w.$]+)/);
+  return m ? m[1] : '';
+}
+
+const stockLabel = (p) => (!p ? 'inconnu' : p.includes('launcherx') ? 'Google TV' : p.includes('tvlauncher') || p.includes('leanback') ? 'Android TV' : p);
+
+// Applis système connues pour reprendre le bouton Accueil quand l'accueil d'origine est désactivé.
+// setupwraith (Google TV) : sa RecoveryActivity (HOME, priorité 1) passe devant tout lanceur ajouté (CleanYourTV :
+// xiaomi-mitv-afmu1, chromecast-gtv, kirkwood...). Il faut la désactiver AVANT l'accueil d'origine, mais si elle a
+// enregistré le réseau Wi-Fi, Android l'efface avec elle : la TV distante serait perdue.
+const HOME_RIVALS = {
+  'com.google.android.tungsten.setupwraith': "à réactiver pour réappairer la télécommande",
+};
+const isRemote = (dev) => !!dev && (dev.transport === 'agent' || !!dev.remote);
+
+// Peut-on désactiver l'accueil d'origine sans risque de bloquer la TV ?
+// Renvoie { ok, rivals (à désactiver d'abord), why }. pkg : nouveau lanceur (null pour l'aperçu).
+function stockCheck({ dev, pk, wifi, homes, pkg, stock, models = [] }) {
+  const launcherPkgs = new Set(catalog.launchers.map((l) => l.pkg));
+  const active = (p) => pk.system.has(p) && !pk.disabled.has(p);
+  const rivals = new Set(homes.map((c) => c.split('/')[0]).filter((p) => active(p) && p !== stock && p !== pkg && !launcherPkgs.has(p)));
+  for (const p of Object.keys(HOME_RIVALS)) if (active(p) && p !== stock) rivals.add(p);
+  const keep = (why) => ({ ok: false, rivals: [], why: `Accueil d'origine conservé : ${why}` });
+  const limit = `Le nouveau lanceur reste l'accueil par défaut, mais le bouton Accueil peut parfois rouvrir ${stockLabel(stock)}.`;
+  if (stock && wifi.owners.has(stock)) return keep(`il a enregistré le réseau Wi-Fi de la TV. ${limit}`);
+  if (!rivals.size) return { ok: true, rivals: [], why: '' };
+  const list = [...rivals];
+  const name = (p) => byPkg.get(p)?.name || p;
+  const wifiOwner = list.find((p) => wifi.owners.has(p));
+  if (wifiOwner) {
+    return keep(`${name(wifiOwner)} reprendrait le bouton Accueil si l'accueil d'origine était désactivé, et il a enregistré le réseau Wi-Fi de la TV (le désactiver effacerait le Wi-Fi). ${limit} Pour aller plus loin : oublie puis ressaisis le réseau Wi-Fi dans les paramètres de la TV, devant elle.`);
+  }
+  if (!wifi.ok) return keep(`${list.map(name).join(', ')} reprendrai${list.length > 1 ? 'ent' : 't'} le bouton Accueil et le Wi-Fi de la TV n'a pas pu être vérifié. ${limit}`);
+  const unknown = list.find((p) => !HOME_RIVALS[p] || isProtected(p) || CYT.criticalFor(models, p));
+  if (unknown) return keep(`${name(unknown)} déclare aussi un écran d'accueil et pourrait reprendre le bouton Accueil ; on ne la désactive pas sans la connaître. ${limit}`);
+  if (isRemote(dev)) return keep(`${list.map(name).join(', ')} reprendrai${list.length > 1 ? 'ent' : 't'} le bouton Accueil si l'accueil d'origine était désactivé, et ${list.length > 1 ? 'les' : 'le'} désactiver à distance est trop risqué. ${limit}`);
+  return { ok: true, rivals: list, why: '' };
+}
+
 // Propriétés de l'appareil utiles à la reconnaissance du modèle CleanYourTV (en plus de celles de dev)
 async function modelProps(target, dev) {
   const r = await A.shell(target, 'echo name=$(getprop ro.product.name); echo product=$(getprop ro.build.product); echo fingerprint=$(getprop ro.build.fingerprint)', { timeout: 8000 });
@@ -189,12 +231,15 @@ async function plan(target, dev, level, mode = 'recommended') {
     const stockPkg = current ? current.split('/')[0] : '';
     launcher = {
       current, stockPkg,
-      stockName: stockPkg ? (stockPkg.includes('launcherx') ? 'Google TV' : stockPkg.includes('tvlauncher') || stockPkg.includes('leanback') ? 'Android TV' : stockPkg) : 'inconnu',
+      stockName: stockLabel(stockPkg),
       options: catalog.launchers.map((l) => ({ ...l, installed: installed.has(l.pkg) && !pk.disabled.has(l.pkg), isHome: homePkgs.has(l.pkg), current: stockPkg === l.pkg })),
       others: homes.filter((c) => !catalog.launchers.some((l) => c.startsWith(`${l.pkg}/`)) && !c.startsWith(`${stockPkg}/`)),
       // Sur Fire TV, Amazon empêche de remplacer durablement l'écran d'accueil
       fireTv: isFireTv(dev),
     };
+    // L'accueil d'origine peut-il être désactivé sans bloquer le bouton Accueil ? (sinon : case à griser, raison affichée)
+    const chk = stockCheck({ dev, pk, wifi, homes, pkg: null, stock: stockPkg, models: detected.models });
+    launcher.stockDisable = { allowed: chk.ok, why: chk.why, rivals: chk.rivals };
   }
 
   const checkedMem = apps.filter((a) => a.checked).reduce((s, a) => s + a.memMb, 0);
@@ -286,14 +331,8 @@ async function apply(target, dev, body) {
       } else {
         const r = await A.shell(target, `cmd package set-home-activity ${comp}`);
         if (/Success/i.test(r.out)) {
-          snap.home = { before: previous, after: comp, stockDisabled: null };
-          log(true, `Nouveau lanceur par défaut : ${comp.split('/')[0]}`);
-          const stock = previous ? previous.split('/')[0] : '';
-          if (body.launcher.disableStock && stock && stock !== pkg) {
-            const d = await A.shell(target, `pm disable-user --user 0 ${stock}`);
-            if (/disabled/.test(d.out)) { snap.home.stockDisabled = stock; log(true, `Lanceur d'origine désactivé (${stock})`); } else log(false, `Désactivation du lanceur d'origine : ${d.err || d.out || 'échec'}`);
-          }
-          await A.shell(target, 'input keyevent KEYCODE_HOME');
+          snap.home = { before: previous, after: comp, stockDisabled: null, rivalsDisabled: [] };
+          await launcherStep(target, dev, { pkg, comp, previous, homes, wifi, models: detected.models, disableStock: !!body.launcher.disableStock, snap, log });
         } else {
           log(false, `Changement de lanceur refusé par la TV : ${r.err || r.out || 'échec'}. Choisis-le à la main avec le bouton Accueil.`);
         }
@@ -309,23 +348,124 @@ async function apply(target, dev, body) {
   });
 }
 
+// Nouveau lanceur choisi (set-home-activity accepté) : vérifie qui résout réellement HOME, puis désactive
+// éventuellement l'accueil d'origine, avec contrôle après coup et retour arrière automatique.
+async function launcherStep(target, dev, { pkg, comp, previous, homes, wifi, models, disableStock, snap, log }) {
+  const short = (c) => (c ? c.split('/')[0] : 'aucun accueil');
+  await A.sleep(1000);
+  const now = await currentHome(target);
+  const stock = previous ? previous.split('/')[0] : '';
+  if (now !== comp) {
+    log(false, `La TV a accepté ${pkg} comme accueil, mais le bouton Accueil mène encore à ${short(now)}. Choisis le lanceur à la main avec le bouton Accueil.${disableStock && stock && stock !== pkg ? " L'accueil d'origine n'a pas été désactivé." : ''}`);
+    await A.shell(target, 'input keyevent KEYCODE_HOME');
+    return;
+  }
+  log(true, `Nouveau lanceur par défaut : ${pkg} (vérifié)`);
+  if (!disableStock || !stock || stock === pkg) { await A.shell(target, 'input keyevent KEYCODE_HOME'); return; }
+
+  // État à jour (des applis viennent peut-être d'être désactivées à l'étape 3)
+  const pk = await listPackages(target);
+  const chk = stockCheck({ dev, pk, wifi, homes, pkg, stock, models });
+  if (!chk.ok) { log(false, chk.why); await A.shell(target, 'input keyevent KEYCODE_HOME'); return; }
+
+  const name = (p) => byPkg.get(p)?.name || p;
+  // Retour arrière : accueil d'origine et applis rivales réactivés, nouveau lanceur remis par défaut (sinon l'ancien)
+  const rollback = async (reason) => {
+    const back = [];
+    if (snap.home.stockDisabled) back.push(snap.home.stockDisabled);
+    back.push(...[...snap.home.rivalsDisabled].reverse());
+    const failed = [];
+    for (const p of back) {
+      const e = await A.shell(target, `pm enable ${p}`);
+      if (!/enabled/.test(e.out)) failed.push(p);
+    }
+    snap.home.stockDisabled = null;
+    snap.home.rivalsDisabled = [];
+    await A.shell(target, `cmd package set-home-activity ${comp}`);
+    await A.sleep(1000);
+    let home = await currentHome(target);
+    if (home !== comp && previous) {
+      await A.shell(target, `cmd package set-home-activity ${previous}`);
+      await A.sleep(1000);
+      home = await currentHome(target);
+    }
+    if (home !== comp) snap.home.after = home || previous;
+    log(false, `Échec : ${reason}. Retour arrière automatique : ${back.map(name).join(', ')} réactivé${back.length > 1 ? 's' : ''}${failed.length ? ` (sauf ${failed.join(', ')} : à réactiver d'urgence depuis l'historique)` : ''} ; le bouton Accueil mène maintenant à ${short(home)}.`);
+  };
+
+  // Applis qui reprendraient le bouton Accueil : désactivées AVANT l'accueil d'origine (TV locale seulement)
+  for (const p of chk.rivals) {
+    const d = await A.shell(target, `pm disable-user --user 0 ${p}`, { timeout: 20000 });
+    if (!/disabled/.test(d.out)) {
+      await rollback(`${name(p)} (qui reprendrait le bouton Accueil) n'a pas pu être désactivée (${d.err || d.out || 'échec'}) ; l'accueil d'origine n'a pas été touché`);
+      await A.shell(target, 'input keyevent KEYCODE_HOME');
+      return;
+    }
+    snap.home.rivalsDisabled.push(p);
+    log(true, `${name(p)} désactivée : elle reprenait le bouton Accueil${HOME_RIVALS[p] ? ` (${HOME_RIVALS[p]})` : ''}`);
+  }
+  if (chk.rivals.length && wifi.ok && wifi.networks) {
+    const w = await wifiInfo(target);
+    if (w.ok && w.networks < wifi.networks) log(false, `Wi-Fi : ${wifi.networks - w.networks} réseau(x) enregistré(s) perdu(s), à ressaisir dans les paramètres`);
+  }
+
+  const d = await A.shell(target, `pm disable-user --user 0 ${stock}`);
+  if (!/disabled/.test(d.out)) {
+    log(false, `Désactivation du lanceur d'origine : ${d.err || d.out || 'échec'}`);
+    if (snap.home.rivalsDisabled.length) await rollback("l'accueil d'origine n'a pas pu être désactivé");
+    await A.shell(target, 'input keyevent KEYCODE_HOME');
+    return;
+  }
+  snap.home.stockDisabled = stock;
+
+  // Android peut oublier le choix d'accueil quand la liste des accueils change : on le redonne, puis on contrôle
+  await A.shell(target, `cmd package set-home-activity ${comp}`);
+  await A.sleep(1000);
+  const after = await currentHome(target);
+  if (after !== comp) {
+    await rollback(`une fois l'accueil d'origine (${stock}) désactivé, le bouton Accueil menait à ${short(after)} au lieu de ${pkg}`);
+    await A.shell(target, 'input keyevent KEYCODE_HOME');
+    return;
+  }
+
+  // Contrôle réel : appui sur Accueil puis activité au premier plan. Une autre appli d'accueil au premier plan
+  // (assistant d'installation...) veut dire que la TV est bloquée hors du nouveau lanceur.
+  await A.shell(target, 'input keyevent KEYCODE_HOME');
+  await A.sleep(2000);
+  const top = await resumedActivity(target);
+  const topPkg = top.split('/')[0];
+  const homesNow = await homeActivities(target);
+  const suspects = new Set([...homesNow.map((c) => c.split('/')[0]), ...Object.keys(HOME_RIVALS)]);
+  suspects.delete(pkg);
+  if (topPkg && suspects.has(topPkg)) {
+    await rollback(`après un appui sur Accueil, la TV affichait ${top} au lieu de ${pkg}`);
+    await A.shell(target, 'input keyevent KEYCODE_HOME');
+    return;
+  }
+  log(true, `Lanceur d'origine désactivé (${stock}) ; le bouton Accueil mène bien à ${pkg}`);
+}
+
 // --- Restauration : un instantané, une appli d'un instantané, ou tout
 async function restore(target, dev, { snapshot = 'all', pkg = null } = {}) {
   return withLock(dev.id, async () => {
     const hist = store.history(dev.id);
-    const todo = hist.filter((s) => !s.restored && (snapshot === 'all' || s.id === snapshot));
+    const todo = hist.filter((s) => !s.restored && s.type !== 'reset-launcher' && (snapshot === 'all' || s.id === snapshot));
     if (!todo.length) throw Object.assign(new Error('Rien à restaurer.'), { code: 400 });
     const log = [];
 
     if (pkg) {
       const snap = todo[0];
-      if (!snap.apps.includes(pkg) && snap.home?.stockDisabled !== pkg) throw Object.assign(new Error("Cette appli ne fait pas partie de l'instantané."), { code: 400 });
+      const rivals = snap.home?.rivalsDisabled || [];
+      if (!snap.apps.includes(pkg) && snap.home?.stockDisabled !== pkg && !rivals.includes(pkg)) throw Object.assign(new Error("Cette appli ne fait pas partie de l'instantané."), { code: 400 });
       const r = await A.shell(target, `pm enable ${pkg}`);
       const ok = /enabled/.test(r.out);
       log.push({ ok, text: `${byPkg.get(pkg)?.name || pkg} ${ok ? 'réactivée' : `: ${r.err || r.out}`}` });
       if (ok) {
         snap.apps = snap.apps.filter((p) => p !== pkg);
         if (snap.home?.stockDisabled === pkg) snap.home.stockDisabled = null;
+        if (snap.home) snap.home.rivalsDisabled = rivals.filter((p) => p !== pkg);
+        // Une appli réactivée (assistant d'installation...) peut reprendre le bouton Accueil : on le vérifie
+        await keepHome(target, hist, log);
       }
       store.saveHistory(dev.id, hist);
       return { log };
@@ -334,6 +474,7 @@ async function restore(target, dev, { snapshot = 'all', pkg = null } = {}) {
     for (const snap of todo) { // du plus récent au plus ancien
       const pkgs = [...snap.apps];
       if (snap.home?.stockDisabled) pkgs.push(snap.home.stockDisabled);
+      if (snap.home?.rivalsDisabled) pkgs.push(...snap.home.rivalsDisabled);
       for (const p of pkgs) {
         const r = await A.shell(target, `pm enable ${p}`);
         const ok = /enabled/.test(r.out);
@@ -354,6 +495,100 @@ async function restore(target, dev, { snapshot = 'all', pkg = null } = {}) {
     store.saveHistory(dev.id, hist);
     if (todo.some((s) => s.home)) await A.shell(target, 'input keyevent KEYCODE_HOME');
     return { log };
+  });
+}
+
+// Après une réactivation isolée : le bouton Accueil doit toujours mener au lanceur choisi. Sinon, le choix
+// est redonné ; s'il ne tient toujours pas et que l'accueil d'origine est désactivé, celui-ci est réactivé.
+async function keepHome(target, hist, log) {
+  const snap = hist.find((s) => !s.restored && s.home && s.home.after);
+  if (!snap) return;
+  let home = await currentHome(target);
+  if (home === snap.home.after) return;
+  await A.shell(target, `cmd package set-home-activity ${snap.home.after}`);
+  await A.sleep(1000);
+  home = await currentHome(target);
+  if (home === snap.home.after) { log.push({ ok: true, text: `Accueil remis sur ${snap.home.after.split('/')[0]}` }); return; }
+  for (const s of hist.filter((x) => !x.restored && x.home && x.home.stockDisabled)) {
+    const p = s.home.stockDisabled;
+    const r = await A.shell(target, `pm enable ${p}`);
+    if (/enabled/.test(r.out)) s.home.stockDisabled = null;
+    log.push({ ok: /enabled/.test(r.out), text: `Accueil d'origine réactivé (${p}) : sans lui, le bouton Accueil ne menait plus au lanceur choisi` });
+  }
+  await A.shell(target, `cmd package set-home-activity ${snap.home.after}`);
+  await A.sleep(1000);
+  home = await currentHome(target);
+  log.push({ ok: !!home, text: `Le bouton Accueil mène à ${home ? home.split('/')[0] : 'aucun accueil'}` });
+}
+
+// --- Remettre le lanceur d'origine, à tout moment et sans passer par l'historique.
+// Réactive les accueils d'origine désactivés (Google TV / Android TV, sinon celui du constructeur) et setupwraith
+// (sans risque : il rend le Wi-Fi et l'appairage de la télécommande), redonne l'accueil au lanceur d'origine et
+// vérifie. Le lanceur tiers reste installé et activé.
+const GOOGLE_STOCK = ['com.google.android.apps.tv.launcherx', 'com.google.android.tvlauncher', 'com.google.android.leanbacklauncher'];
+
+// Accueils déclarés par des applis désactivées (activités désactivées comprises) ; liste vide si la TV refuse l'option
+async function disabledHomes(target, disabled) {
+  const r = await A.shell(target, 'cmd package query-activities --brief --query-flags 0x8200 -a android.intent.action.MAIN -c android.intent.category.HOME', { timeout: 10000 });
+  return [...new Set(component(r.out).map((c) => c.split('/')[0]))].filter((p) => disabled.has(p));
+}
+
+async function resetLauncher(target, dev) {
+  return withLock(dev.id, async () => {
+    const log = [];
+    const add = (ok, text) => log.push({ ok, text });
+    const pk = await listPackages(target);
+    const installed = new Set([...pk.system, ...pk.user]);
+    const hist = store.history(dev.id);
+    // Accueils d'origine connus par l'historique (y compris celui d'un constructeur)
+    const fromHist = hist.flatMap((s) => (s.home ? [s.home.stockDisabled, s.home.before && s.home.before.split('/')[0]] : [])).filter(Boolean);
+    const googleStock = [...new Set([...GOOGLE_STOCK, ...STOCK_LAUNCHERS])].filter((p) => installed.has(p));
+    const launcherPkgs = new Set(catalog.launchers.map((l) => l.pkg));
+    // Accueils constructeur : seulement s'il n'y a pas d'accueil Google (ex. ne pas rallumer PatchWall sur un Mi Stick)
+    const vendor = googleStock.length ? [] : (await disabledHomes(target, pk.disabled)).filter((p) => pk.system.has(p) && !launcherPkgs.has(p));
+    const candidates = [...new Set([...googleStock, ...fromHist.filter((p) => installed.has(p) && !launcherPkgs.has(p)), ...vendor])];
+    const toEnable = candidates.filter((p) => pk.disabled.has(p));
+    for (const p of Object.keys(HOME_RIVALS)) if (pk.disabled.has(p)) toEnable.push(p);
+
+    const enabled = [];
+    for (const p of toEnable) {
+      const r = await A.shell(target, `pm enable ${p}`);
+      const ok = /enabled/.test(r.out);
+      if (ok) enabled.push(p);
+      add(ok, `${byPkg.get(p)?.name || p} ${ok ? 'réactivée' : `: ${r.err || r.out || 'échec'}`}`);
+    }
+    if (!toEnable.length) add(true, "Aucun accueil d'origine désactivé");
+
+    // Accueil d'origine présent, par ordre de préférence : Google TV, Android TV, Leanback, puis constructeur
+    const homes = await homeActivities(target);
+    const order = [...GOOGLE_STOCK, ...candidates.filter((p) => !GOOGLE_STOCK.includes(p))];
+    let comp = '';
+    for (const p of order) { comp = homes.find((c) => c.startsWith(`${p}/`)) || ''; if (comp) break; }
+    if (!comp) {
+      add(false, "Aucun accueil d'origine trouvé sur la TV : choisis l'accueil à la main avec le bouton Accueil.");
+    } else {
+      const r = await A.shell(target, `cmd package set-home-activity ${comp}`);
+      add(/Success/i.test(r.out), /Success/i.test(r.out) ? `Accueil par défaut : ${stockLabel(comp.split('/')[0])} (${comp.split('/')[0]})` : `Changement d'accueil refusé par la TV : ${r.err || r.out || 'échec'}`);
+    }
+    await A.sleep(1000);
+    const home = await currentHome(target);
+    const ok = !!comp && home === comp;
+    add(ok, ok ? `Vérifié : le bouton Accueil mène à ${stockLabel(home.split('/')[0])}` : `Le bouton Accueil mène à ${home ? home.split('/')[0] : 'aucun accueil (choix demandé à l\'appui)'}`);
+    await A.shell(target, 'input keyevent KEYCODE_HOME');
+
+    // Historique : les instantanés actifs ne comptent plus ces applis comme désactivées
+    for (const s of hist.filter((x) => !x.restored)) {
+      s.apps = (s.apps || []).filter((p) => !enabled.includes(p));
+      if (s.home) {
+        if (enabled.includes(s.home.stockDisabled)) s.home.stockDisabled = null;
+        s.home.rivalsDisabled = (s.home.rivalsDisabled || []).filter((p) => !enabled.includes(p));
+        if (comp) s.home.after = comp;
+      }
+    }
+    const at = new Date().toISOString();
+    hist.unshift({ id: Date.now().toString(36), type: 'reset-launcher', at, level: 0, settings: {}, apps: [], enabled, home: { before: null, after: home || null }, log, restored: true, restoredAt: at });
+    store.saveHistory(dev.id, hist);
+    return { ok, home: home || '', log };
   });
 }
 
@@ -414,4 +649,4 @@ async function audit(target, dev) {
   };
 }
 
-module.exports = { plan, apply, restore, openStore, audit, LEVELS, catalog, isProtected };
+module.exports = { plan, apply, restore, resetLauncher, openStore, audit, LEVELS, catalog, isProtected };
