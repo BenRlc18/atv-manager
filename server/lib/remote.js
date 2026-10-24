@@ -168,7 +168,7 @@ const DEVICE_JAR = '/data/local/tmp/atvm-scrcpy.jar';
 function serverCommand(scid) {
   const opts = [
     `scid=${scid}`, 'log_level=warn', 'audio=false', 'control=false', 'tunnel_forward=true',
-    'send_device_meta=false', 'send_dummy_byte=false', 'max_size=1280', 'video_bit_rate=3000000', 'max_fps=30',
+    'send_device_meta=false', 'send_dummy_byte=false', 'max_size=1920', 'video_bit_rate=4000000', 'max_fps=30',
     'video_codec_options=i-frame-interval=2', 'cleanup=true', 'power_off_on_close=false',
   ];
   return `CLASSPATH=${DEVICE_JAR} app_process / com.genymobile.scrcpy.Server ${SCRCPY_VERSION} ${opts.join(' ')}`;

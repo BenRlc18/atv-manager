@@ -246,6 +246,7 @@ let pageCleanup = null;
 async function render() {
   const rid = ++renderId;
   if (pageCleanup) { const fn = pageCleanup; pageCleanup = null; fn(); }
+  $app.classList.remove('wide');
   const hash = location.hash.replace(/^#/, '') || '/';
   const invite = /^\/invite\/([A-Za-z0-9]+)\/?$/.exec(hash);
 
@@ -652,7 +653,10 @@ async function viewDevice(rid, id) {
         <h1>${esc(displayName(d))}</h1>
         <p class="t2 sm">${esc([d.brand, d.model].filter(Boolean).join(' '))}${d.android ? ` · Android ${esc(d.android)}` : ''} · ${viaAgent(d) ? 'via ATVM Connect' : `<span class="mono">${esc(d.host)}</span>${d.remote ? ' · via Tailscale' : ''}`}</p>
       </div>
-      ${isAdmin() ? '<button class="btn" id="rename">Renommer</button>' : ''}
+      <div class="head-actions">
+        <a class="btn primary" href="#/tv/${encodeURIComponent(id)}/remote">${ic('remote')}Dépannage à distance</a>
+        ${isAdmin() ? '<button class="btn" id="rename">Renommer</button>' : ''}
+      </div>
     </div>
 
     <div class="panel"><div class="specs" id="specs">
@@ -662,6 +666,11 @@ async function viewDevice(rid, id) {
       <div class="spec"><span class="k">Allumée depuis</span><span class="v t3">—</span></div>
     </div></div>
     <div id="conn-error"></div>
+    <a class="panel remote-cta" href="#/tv/${encodeURIComponent(id)}/remote">
+      <span class="ico">${ic('remote')}</span>
+      <span style="min-width:0"><b>Dépannage à distance</b><span class="sm t2">Voir l'écran de la TV en direct et la piloter avec une télécommande. La TV affiche « Accès à distance : dépannage en cours » pendant la session.</span></span>
+      <span class="btn sm primary">Ouvrir</span>
+    </a>
     <section class="section" id="audit"></section>
     <section class="section" id="apps-install"></section>
     ${isAdmin() && d.remote && !viaAgent(d) && !d.tsTagged ? `<div class="note attn" id="ts-isolate-box">${ic('alert')}<div class="stack"><span><b>TV Tailscale sans étiquette :</b> elle peut voir tout ton réseau Tailscale, et sa clé expirera dans quelques mois.</span><div><button class="btn sm" id="ts-isolate">Isoler cette TV (${esc(S.settings.tailscale.tag || 'tag:tvbox')}, clé sans expiration)</button></div></div></div>` : ''}
@@ -693,15 +702,6 @@ async function viewDevice(rid, id) {
             <span style="min-width:0"><b>${esc(L[n]?.title || '')}</b><span class="sm t2" style="display:block">${does}</span><span class="sm t3" style="display:block">Tu perds : ${loses}</span></span>
             <span class="t3">${ic('chevron')}</span>
           </a>`).join('')}
-      </div>
-    </section>
-
-    <section class="section">
-      <div class="panel">
-        <div class="setting">
-          <div><div class="lbl">${ic('remote')}Dépannage à distance</div><p class="desc">Voir l'écran de la TV en direct et la piloter avec une télécommande. Un bandeau « Accès à distance : dépannage en cours » s'affiche sur la TV pendant toute la session.</p></div>
-          <a class="btn sm primary" href="#/tv/${encodeURIComponent(id)}/remote">${ic('remote')}Ouvrir</a>
-        </div>
       </div>
     </section>
 
@@ -1275,6 +1275,8 @@ async function viewRemote(rid, id) {
   if (!d) throw new Error("Cette TV n'est plus enregistrée.");
   const base = `/api/devices/${encodeURIComponent(id)}/remote`;
   const canVideo = typeof window.VideoDecoder === 'function';
+  // Page en pleine largeur : l'écran de la TV prend toute la place disponible
+  $app.classList.add('wide');
 
   $app.innerHTML = `
     ${crumbs([['Appareils', '#/'], [displayName(d), `#/tv/${encodeURIComponent(id)}`], ['Dépannage']])}
@@ -1456,9 +1458,17 @@ async function viewRemote(rid, id) {
     try { await api(`${base}/text`, { method: 'POST', body: { text: input.value } }); input.value = ''; } catch (err) { toast(err.message, 'error'); }
   });
   // Appui à l'endroit cliqué sur l'écran
+  // (l'image est centrée dans son cadre : on retire les éventuelles bandes noires)
   [canvas, img].forEach((el) => el.addEventListener('click', (e) => {
     const r = el.getBoundingClientRect();
-    api(`${base}/tap`, { method: 'POST', body: { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height } }).catch((err) => toast(err.message, 'error'));
+    const iw = el === canvas ? canvas.width : img.naturalWidth;
+    const ih = el === canvas ? canvas.height : img.naturalHeight;
+    if (!iw || !ih) return;
+    const scale = Math.min(r.width / iw, r.height / ih);
+    const x = (e.clientX - r.left - (r.width - iw * scale) / 2) / (iw * scale);
+    const y = (e.clientY - r.top - (r.height - ih * scale) / 2) / (ih * scale);
+    if (x < 0 || x > 1 || y < 0 || y > 1) return;
+    api(`${base}/tap`, { method: 'POST', body: { x, y } }).catch((err) => toast(err.message, 'error'));
   }));
   $('#rv-full').addEventListener('click', () => { const box = $('#rv-box'); if (document.fullscreenElement) document.exitFullscreen(); else box.requestFullscreen?.(); });
 

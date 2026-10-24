@@ -463,10 +463,11 @@ body.auth-mode main { padding-bottom: 48px; }
 #home-result .note:not(.warn) svg.i { color: var(--ok); }
 
 /* Dépannage à distance */
-.remote-grid { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 16px; align-items: start; }
+main.wide { max-width: 1680px; }
+.remote-grid { display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: 16px; align-items: start; }
 .screen-panel { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
-.screen-box { position: relative; aspect-ratio: 16 / 9; background: #000; border-radius: 6px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
-.screen-box canvas, .screen-box img { display: block; max-width: 100%; max-height: 100%; cursor: crosshair; }
+.screen-box { position: relative; aspect-ratio: 16 / 9; max-height: calc(100vh - 190px); background: #000; border-radius: 6px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.screen-box canvas, .screen-box img { display: block; width: 100%; height: 100%; object-fit: contain; cursor: crosshair; }
 .screen-box:fullscreen { border-radius: 0; aspect-ratio: auto; }
 .screen-msg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 16px; text-align: center; color: #d8d6d0; font-size: 14px; }
 .screen-msg .spin { border-color: rgba(255,255,255,.25); border-top-color: #fff; }
@@ -482,3 +483,9 @@ body.auth-mode main { padding-bottom: 48px; }
 .pad-text { display: flex; gap: 6px; }
 .pad-text .input { flex: 1; min-width: 0; }
 @media (max-width: 900px) { .remote-grid { grid-template-columns: minmax(0, 1fr); } }
+.head-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.remote-cta { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 16px 18px; color: inherit; border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); background: var(--accent-weak); }
+.remote-cta:hover { text-decoration: none; border-color: var(--accent); }
+.remote-cta .ico { width: 40px; height: 40px; border-radius: 8px; display: grid; place-items: center; background: var(--accent); color: var(--accent-text); }
+.remote-cta b { display: block; }
+@media (max-width: 760px) { .remote-cta { grid-template-columns: 40px minmax(0, 1fr); } .remote-cta .btn { grid-column: 1 / -1; justify-self: start; } }
