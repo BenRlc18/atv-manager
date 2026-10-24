@@ -682,9 +682,11 @@ async function viewDevice(rid, id) {
           <thead><tr><th></th>${[1, 2, 3].map((n) => `<th><div class="lvl"><b>N${n}</b><span>${esc(L[n]?.title || '')}</span></div></th>`).join('')}</tr></thead>
           <tbody>
             <tr><td>Animations accélérées<small>0,5x au lieu de 1x</small></td><td>${yes}</td><td>${yes}</td><td>${yes}</td></tr>
-            <tr><td>Caches vidés, mémoire libérée</td><td>${yes}</td><td>${yes}</td><td>${yes}</td></tr>
+            <tr><td>Applis recompilées<small>démarrage plus rapide</small></td><td>${yes}</td><td>${yes}</td><td>${yes}</td></tr>
+            <tr><td>Recherche Wi-Fi et Bluetooth en arrière-plan coupée</td><td>${yes}</td><td>${yes}</td><td>${yes}</td></tr>
+            <tr><td>DNS anti-pub<small>en option</small></td><td>${yes}</td><td>${yes}</td><td>${yes}</td></tr>
             <tr><td>Télémétrie coupée</td><td>${yes}</td><td>${yes}</td><td>${yes}</td></tr>
-            <tr><td>Applis inutiles désactivées<small>sélection recommandée ou manuelle</small></td><td>${no}</td><td>${yes}</td><td>${yes}</td></tr>
+            <tr><td>Applis inutiles désactivées<small>le seul gain de mémoire durable</small></td><td>${no}</td><td>${yes}</td><td>${yes}</td></tr>
             <tr><td>Nouveau lanceur<small>écran d'accueil sans publicité</small></td><td>${no}</td><td>${no}</td><td>${yes}</td></tr>
             <tr><td>Ce que tu perds</td><td class="sm t2">Rien de visible</td><td class="sm t2">Selon les applis</td><td class="sm t2">L'accueil d'origine</td></tr>
           </tbody>
@@ -693,7 +695,7 @@ async function viewDevice(rid, id) {
       </div>
       <div class="panel level-list">
         ${[
-          [1, 'Animations, caches, mémoire, télémétrie.', 'Rien de visible.'],
+          [1, 'Animations, applis recompilées, recherches en arrière-plan coupées, télémétrie. DNS anti-pub en option.', 'Rien de visible.'],
           [2, 'Niveau 1 + applis inutiles désactivées.', 'Selon les applis choisies.'],
           [3, 'Niveau 2 + nouveau lanceur sans publicité.', "L'accueil d'origine."],
         ].map(([n, does, loses]) => `
@@ -985,7 +987,7 @@ async function viewOptimize(rid, id, levelStr) {
   const level = Number(levelStr);
   const d = S.devices.find((x) => x.id === id);
   if (!d) throw new Error("Cette TV n'est plus enregistrée.");
-  const st = { plan: null, mode: 'recommended', sel: new Set(), launcher: null, disableStock: false, q: '', filter: 'all' };
+  const st = { plan: null, mode: 'recommended', sel: new Set(), launcher: null, disableStock: false, dns: false, q: '', filter: 'all' };
   const L = S.levels[level] || {};
   const head = () => `
     ${crumbs([['Appareils', '#/'], [displayName(d), `#/tv/${encodeURIComponent(id)}`], [`Niveau ${level}`]])}
@@ -1016,9 +1018,12 @@ async function viewOptimize(rid, id, levelStr) {
         <div class="panel panel-pad">
           <ul class="log">
             <li>${ic('check')}<span>${p.animSkipped ? 'Animations conservées (Fire TV : nécessaire pour accéder à ses paramètres)' : anim ? `Animations accélérées : ${esc(anim.from)}x → ${esc(anim.to)}x` : 'Animations déjà à 0,5x'}</span></li>
-            <li>${ic('check')}<span>Caches des applis vidés, sans toucher à tes données ni à tes comptes</span></li>
-            <li>${ic('check')}<span>Applis en arrière-plan fermées</span></li>
+            <li>${ic('check')}<span>Applis recompilées en arrière-plan : elles démarrent plus vite (quelques minutes, la TV peut ralentir pendant ce temps)</span></li>
+            <li>${ic('check')}<span>${p.scanChanges && p.scanChanges.length ? 'Recherche Wi-Fi et Bluetooth en arrière-plan coupée (les télécommandes ne sont pas concernées)' : 'Recherche Wi-Fi et Bluetooth en arrière-plan déjà coupée'}</span></li>
+            <li>${ic('check')}<span>Caches vidés et applis en arrière-plan fermées, sans toucher à tes données. <span class="t3">Effet immédiat mais temporaire : Android relance une partie des applis.</span></span></li>
           </ul>
+          ${p.dns ? `<div class="dns-opt">${p.dns.active ? `<p class="sm">${ic('check')} DNS anti-pub déjà actif (${esc(p.dns.name)}).</p>` : !p.dns.available ? '<p class="sm t3">DNS anti-pub : demande Android 9 ou plus récent.</p>' : `
+            <label class="check"><input type="checkbox" id="dns" ${st.dns ? 'checked' : ''}><span><b>DNS anti-pub (${esc(p.dns.name)})</b><br><span class="t2">Bloque la plupart des pubs et des pisteurs dans les applis et sur l'accueil, sans rien installer. Les pubs YouTube passent quand même. Si une appli (IPTV, streaming) se met à mal fonctionner, annule-le depuis l'historique.${p.dns.other ? ` Remplace le DNS privé actuel (${esc(p.dns.other)}).` : ''}</span></span></label>`}</div>` : ''}
         </div>
       </section>
 
@@ -1064,6 +1069,7 @@ async function viewOptimize(rid, id, levelStr) {
       updateBar();
     }));
     $('#disable-stock')?.addEventListener('change', (e) => { st.disableStock = e.target.checked; updateBar(); });
+    $('#dns')?.addEventListener('change', (e) => { st.dns = e.target.checked; });
     $$('[data-install]').forEach((b) => b.addEventListener('click', async (e) => {
       e.preventDefault();
       busy(b, true, b.dataset.apk ? 'Installation…' : 'Ouverture…');
@@ -1223,7 +1229,7 @@ async function viewOptimize(rid, id, levelStr) {
     try {
       const r = await api(`/api/devices/${encodeURIComponent(id)}/apply`, {
         method: 'POST',
-        body: { level, apps: sel.map((a) => a.pkg), allowWarn: risky.length > 0, launcher: st.launcher ? { pkg: st.launcher, disableStock: st.disableStock } : null },
+        body: { level, apps: sel.map((a) => a.pkg), allowWarn: risky.length > 0, dns: st.dns, launcher: st.launcher ? { pkg: st.launcher, disableStock: st.disableStock } : null },
       });
       drawResult(r.snapshot, r.audit);
     } catch (e) {

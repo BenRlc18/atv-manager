@@ -13,6 +13,18 @@ const protectedSet = new Set(catalog.protected);
 
 const ANIMATION_KEYS = ['window_animation_scale', 'transition_animation_scale', 'animator_duration_scale'];
 const ANIMATION_TARGET = '0.5';
+// Recherche Wi-Fi et Bluetooth permanente (sert à la localisation) : inutile sur une TV ; les télécommandes ne sont pas concernées
+const SCAN_KEYS = ['wifi_scan_always_enabled', 'ble_scan_always_enabled'];
+// DNS anti-pub (option) : DNS privé d'Android 9 et plus, bloque pubs et pisteurs sans rien installer
+const DNS_KEYS = ['private_dns_mode', 'private_dns_specifier'];
+const DNS = { host: 'dns.adguard-dns.com', name: 'AdGuard DNS' };
+const SETTING_LABELS = {
+  wifi_scan_always_enabled: 'Recherche Wi-Fi en arrière-plan',
+  ble_scan_always_enabled: 'Recherche Bluetooth en arrière-plan',
+  private_dns_mode: 'DNS privé',
+  private_dns_specifier: 'Serveur DNS privé',
+};
+const settingLabel = (key) => SETTING_LABELS[key] || `Animation ${key}`;
 
 function isProtected(pkg) {
   return protectedSet.has(pkg) || catalog.protectedPrefixes.some((p) => pkg === p || pkg.startsWith(`${p}.`) || pkg.startsWith(p));
@@ -126,21 +138,28 @@ const CYT_CRITICAL = /webview|inputmethod|\.ime$|keyboard|packageinstaller|bluet
 const CYT_LOSS = "Non documentée en français : lis la note de CleanYourTV (en anglais) avant de la retirer.";
 
 async function getSettings(target) {
-  const r = await A.shell(target, ANIMATION_KEYS.map((k) => `echo ${k}=$(settings get global ${k})`).join('; '), { timeout: 8000 });
+  const keys = [...ANIMATION_KEYS, ...SCAN_KEYS, ...DNS_KEYS];
+  const r = await A.shell(target, `${keys.map((k) => `echo ${k}=$(settings get global ${k})`).join('; ')}; echo sdk=$(getprop ro.build.version.sdk)`, { timeout: 8000 });
   return A.parseKv(r.out);
+}
+
+// État du DNS anti-pub : disponible (Android 9+), déjà actif, ou un autre DNS privé choisi par la personne
+function dnsState(settings) {
+  const custom = settings.private_dns_mode === 'hostname' ? settings.private_dns_specifier || '' : '';
+  return { name: DNS.name, host: DNS.host, available: Number(settings.sdk) >= 28, active: custom === DNS.host, other: custom && custom !== DNS.host ? custom : '' };
 }
 
 const LEVELS = {
   1: {
     title: 'Léger',
-    summary: "Allège la mémoire sans retirer d'applis.",
-    gains: ['Menus et transitions plus rapides (animations à 0,5x)', 'Mémoire libérée (caches vidés, applis en arrière-plan fermées)', 'Télémétrie coupée'],
+    summary: "Accélère la TV sans retirer d'applis.",
+    gains: ['Menus et transitions plus rapides (animations à 0,5x)', 'Applis recompilées : elles démarrent plus vite', 'Recherche Wi-Fi et Bluetooth en arrière-plan coupée', 'Télémétrie coupée', 'En option : DNS anti-pub'],
     losses: ['Pratiquement rien : les statistiques envoyées au fabricant et à Google'],
   },
   2: {
     title: 'Moyen',
     summary: 'Niveau léger + désactivation des applis inutiles.',
-    gains: ['Tout le niveau léger', 'Plus de mémoire et de stockage libres', "Moins de mises à jour et de publicité en arrière-plan"],
+    gains: ['Tout le niveau léger', 'Mémoire libérée durablement : les applis désactivées ne tournent plus du tout', "Moins de mises à jour et de publicité en arrière-plan"],
     losses: ['Les fonctions des applis désactivées (indiquées pour chacune)', 'Tout reste réactivable depuis l\'historique'],
   },
   3: {
@@ -243,7 +262,11 @@ async function plan(target, dev, level, mode = 'recommended') {
   }
 
   const checkedMem = apps.filter((a) => a.checked).reduce((s, a) => s + a.memMb, 0);
-  return { level, mode, info: LEVELS[level], levels: LEVELS, settingsChanges, animSkipped, apps, launcher, ramFreeMb: ramFree, estimateMb: Math.round(checkedMem), cleanyourtv: CYT.summary(detected) };
+  const scanChanges = SCAN_KEYS.filter((k) => settings[k] !== '0').map((k) => ({ key: k, label: SETTING_LABELS[k], from: settings[k] && settings[k] !== 'null' ? settings[k] : 'défaut', to: '0' }));
+  return {
+    level, mode, info: LEVELS[level], levels: LEVELS, settingsChanges, scanChanges, dns: dnsState(settings), animSkipped, apps, launcher,
+    ramFreeMb: ramFree, estimateMb: Math.round(checkedMem), cleanyourtv: CYT.summary(detected),
+  };
 }
 
 // Fire TV (Amazon) : on ne touche pas aux animations, sinon les paramètres de la Fire TV deviennent inaccessibles
@@ -301,11 +324,18 @@ async function apply(target, dev, body) {
       if (r.ok) { snap.settings[key] = before[key] || 'null'; log(true, `Animation ${key} → ${ANIMATION_TARGET}`); } else log(false, `Animation ${key} : ${r.err || 'échec'}`);
     }
 
-    // 2. Nettoyage mémoire et caches (sans effet durable, pas besoin de restauration)
+    // 1 bis. Recherche Wi-Fi / Bluetooth en arrière-plan coupée
+    for (const key of SCAN_KEYS) {
+      if (before[key] === '0') continue;
+      const r = await A.shell(target, `settings put global ${key} 0`);
+      if (r.ok) { snap.settings[key] = before[key] || 'null'; log(true, `${SETTING_LABELS[key]} coupée`); } else log(false, `${SETTING_LABELS[key]} : ${r.err || 'échec'}`);
+    }
+
+    // 2. Nettoyage mémoire et caches : effet immédiat mais temporaire (Android relance une partie des applis)
     const trim = await A.shell(target, 'pm trim-caches 999G', { timeout: 60000 });
-    log(trim.ok, trim.ok ? 'Caches des applis vidés' : `Vidage des caches : ${trim.err || 'échec'}`);
+    log(trim.ok, trim.ok ? 'Caches des applis vidés (temporaire : ils se reconstituent à l’usage)' : `Vidage des caches : ${trim.err || 'échec'}`);
     const kill = await A.shell(target, 'am kill-all');
-    log(kill.ok, kill.ok ? 'Applis en arrière-plan fermées' : `Fermeture des applis : ${kill.err || 'échec'}`);
+    log(kill.ok, kill.ok ? 'Applis en arrière-plan fermées (temporaire : Android en relance certaines)' : `Fermeture des applis : ${kill.err || 'échec'}`);
 
     // 3. Applis
     for (const pkg of wifiKept) log(true, `${byPkg.get(pkg)?.name || pkg} conservée : elle a enregistré le Wi-Fi de la TV`);
@@ -318,6 +348,24 @@ async function apply(target, dev, body) {
     if (toDisable.length && wifi.ok && wifi.networks) {
       const after = await wifiInfo(target);
       if (after.ok) log(after.networks >= wifi.networks, after.networks >= wifi.networks ? 'Wi-Fi : réseaux enregistrés conservés' : `Wi-Fi : ${wifi.networks - after.networks} réseau(x) enregistré(s) perdu(s), à ressaisir dans les paramètres`);
+    }
+
+    // 3 bis. DNS anti-pub (option) ; annulé tout de suite si la TV n'arrive plus à joindre Internet
+    if (body.dns) {
+      const dns = dnsState(before);
+      if (!dns.available) log(false, 'DNS anti-pub : demande Android 9 ou plus récent');
+      else if (dns.active) log(true, `DNS anti-pub déjà actif (${DNS.name})`);
+      else {
+        for (const key of DNS_KEYS) snap.settings[key] = before[key] || 'null';
+        await A.shell(target, `settings put global private_dns_specifier ${DNS.host}; settings put global private_dns_mode hostname`);
+        const t = await A.shell(target, 'sleep 3; ping -c 1 -W 5 www.google.com >/dev/null 2>&1 && echo ok || echo ko', { timeout: 20000 });
+        if (/ok/.test(t.out)) log(true, `DNS anti-pub activé (${DNS.name}) : pubs et pisteurs bloqués dans la plupart des applis`);
+        else {
+          await A.shell(target, DNS_KEYS.map((k) => (snap.settings[k] === 'null' ? `settings delete global ${k}` : `settings put global ${k} ${snap.settings[k]}`)).join('; '));
+          for (const key of DNS_KEYS) delete snap.settings[key];
+          log(false, "DNS anti-pub annulé : la TV n'arrivait plus à joindre Internet avec ce DNS");
+        }
+      }
     }
 
     // 4. Lanceur
@@ -341,6 +389,10 @@ async function apply(target, dev, body) {
 
     await A.sleep(3000);
     snap.ramAfter = await ramFreeMb(target);
+
+    // 5. Recompilation des applis, détachée sur la TV : plusieurs minutes, sans bloquer les autres commandes
+    const dex = await A.shell(target, "nohup sh -c 'cmd package bg-dexopt-job' >/dev/null 2>&1 &", { timeout: 10000 });
+    log(dex.ok, dex.ok ? 'Recompilation des applis lancée : elles démarreront plus vite (quelques minutes, la TV peut ralentir pendant ce temps)' : `Recompilation des applis : ${dex.err || 'échec'}`);
     const hist = store.history(dev.id);
     hist.unshift(snap);
     store.saveHistory(dev.id, hist);
@@ -487,7 +539,7 @@ async function restore(target, dev, { snapshot = 'all', pkg = null } = {}) {
       for (const [key, old] of Object.entries(snap.settings)) {
         const cmd = !old || old === 'null' ? `settings delete global ${key}` : `settings put global ${key} ${old}`;
         const r = await A.shell(target, cmd);
-        log.push({ ok: r.ok, text: `Animation ${key} → ${!old || old === 'null' ? 'valeur par défaut' : old}` });
+        log.push({ ok: r.ok, text: `${settingLabel(key)} → ${!old || old === 'null' ? 'valeur par défaut' : old}` });
       }
       snap.restored = true;
       snap.restoredAt = new Date().toISOString();
@@ -644,7 +696,12 @@ async function audit(target, dev) {
   return {
     at: new Date().toISOString(),
     level, partial,
-    checks: { animations: { ok: animOk, skipped: animSkipped, values: ANIMATION_KEYS.map((k) => settings[k] && settings[k] !== 'null' ? settings[k] : '1.0') }, telemetry, safe, optional, launcher },
+    checks: {
+      animations: { ok: animOk, skipped: animSkipped, values: ANIMATION_KEYS.map((k) => settings[k] && settings[k] !== 'null' ? settings[k] : '1.0') },
+      scans: { ok: SCAN_KEYS.every((k) => settings[k] === '0') },
+      dns: dnsState(settings),
+      telemetry, safe, optional, launcher,
+    },
     next,
   };
 }

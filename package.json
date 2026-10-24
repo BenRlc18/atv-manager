@@ -1,6 +1,6 @@
 {
   "name": "atv-manager",
-  "version": "0.10.2",
+  "version": "0.11.0",
   "description": "Optimise et allège ton Android TV depuis un navigateur (PC, Android, iPhone).",
   "main": "server/index.js",
   "scripts": {

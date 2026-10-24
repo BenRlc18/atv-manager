@@ -489,3 +489,5 @@ main.wide { max-width: 1680px; }
 .remote-cta .ico { width: 40px; height: 40px; border-radius: 8px; display: grid; place-items: center; background: var(--accent); color: var(--accent-text); }
 .remote-cta b { display: block; }
 @media (max-width: 760px) { .remote-cta { grid-template-columns: 40px minmax(0, 1fr); } .remote-cta .btn { grid-column: 1 / -1; justify-self: start; } }
+.dns-opt { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+.dns-opt p { display: flex; gap: 8px; align-items: center; }
