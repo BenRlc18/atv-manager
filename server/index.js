@@ -12,6 +12,7 @@ const AG = require('./lib/agents');
 const TS = require('./lib/tailscale');
 const APPS = require('./lib/apps');
 const R = require('./lib/remote');
+const ACC = require('./lib/accessories');
 
 // Réglages renvoyés à l'interface : la clé API Tailscale n'en sort jamais
 const publicSettings = (s) => ({
@@ -195,6 +196,12 @@ route('POST', '/api/connect', 'admin', async (ctx) => {
 route('GET', '/api/devices/:id', 'user', async (ctx, p) => {
   const { dev, target } = await needDevice(ctx.user, p.id);
   return { device: publicDevice(dev, isAdmin(ctx.user)), stats: await D.stats(target) };
+});
+
+// Accessoires connectés ou disponibles (lecture seule)
+route('GET', '/api/devices/:id/accessories', 'user', async (ctx, p) => {
+  const { target } = await needDevice(ctx.user, p.id);
+  return ACC.list(target);
 });
 
 route('POST', '/api/devices/:id/rename', 'admin', async (ctx, p) => {
