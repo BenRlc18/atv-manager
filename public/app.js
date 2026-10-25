@@ -28,6 +28,21 @@ const ICONS = {
   copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>',
   home: '<path d="M4 11 12 4l8 7"/><path d="M6 9.5V20h12V9.5"/><path d="M10 20v-5h4v5"/>',
   remote: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/><path d="m10 8.5 4 1.5-4 1.5z"/>',
+  // Accessoires
+  rc: '<rect x="8" y="2.5" width="8" height="19" rx="3"/><circle cx="12" cy="8" r="1.8"/><path d="M12 13h.01M12 16.5h.01"/>',
+  bluetooth: '<path d="m7 7 10 10-5 4V3l5 4L7 17"/>',
+  gamepad: '<path d="M7.5 7h9a4.5 4.5 0 0 1 4.4 5.5l-.9 4a2.6 2.6 0 0 1-4.4 1.2L14 16h-4l-1.6 1.7A2.6 2.6 0 0 1 4 16.5l-.9-4A4.5 4.5 0 0 1 7.5 7z"/><path d="M8 10.5v3M6.5 12h3M15.5 11h.01M17.5 13h.01"/>',
+  keyboard: '<rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/>',
+  mouse: '<rect x="6" y="3" width="12" height="18" rx="6"/><path d="M12 7v4"/>',
+  headphones: '<path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/>',
+  volume: '<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/>',
+  usb: '<circle cx="12" cy="19" r="2"/><path d="M12 17V4M9.5 6.5 12 4l2.5 2.5M12 14l-4-2.5V9M12 12l4-2.5V7.5"/><circle cx="8" cy="8" r="1"/><path d="M15 5.5h2v2h-2z"/>',
+  drive: '<rect x="3" y="13" width="18" height="7" rx="2"/><path d="M5 13 7.5 5h9L19 13"/><path d="M16 16.5h.01"/>',
+  hdmi: '<path d="M3 8h18v5l-3 3H6l-3-3z"/><path d="M7 11h10"/>',
+  wifi: '<path d="M2.5 9a14 14 0 0 1 19 0"/><path d="M5.5 12.5a9.5 9.5 0 0 1 13 0"/><path d="M8.7 15.8a5 5 0 0 1 6.6 0"/><path d="M12 19h.01"/>',
+  ethernet: '<rect x="4" y="4" width="16" height="13" rx="2"/><path d="M8 17v3h8v-3M9 8v3M12 8v3M15 8v3"/>',
+  battery: '<rect x="2.5" y="7" width="17" height="10" rx="2"/><path d="M22 11v2"/>',
+  plug: '<path d="M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0z"/><path d="M12 17v4"/>',
 };
 const ic = (n) => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n] || ''}</svg>`;
 
@@ -543,14 +558,25 @@ function auditLabel(a) {
   return [a.partial ? 'note' : 'ok', `Optimisée N${a.level}${a.partial ? ' (partiel)' : ''}`];
 }
 
+// Dépannage possible depuis la liste ? Pour ATVM Connect l'état est connu ; en ADB, la page de dépannage vérifie elle-même
+function remoteBlocked(d) {
+  if (!viaAgent(d)) return '';
+  if (!d.agent || !d.agent.online) return "TV hors ligne : allume-la et ouvre l'appli ATVM Connect.";
+  if (d.agent.adb !== 'ok') return 'Le débogage doit être autorisé sur la TV.';
+  return '';
+}
+
+// La ligne entière mène à la fiche (lien étiré sur le nom) ; le bouton Dépannage est un lien séparé, au-dessus
 function deviceRow(d) {
   const fresh = viaAgent(d) ? d.agent && d.agent.online && d.agent.adb === 'ok' : Date.now() - (d.lastSeen || 0) < 6e5;
   const model = [d.brand, d.model].filter(Boolean).join(' ');
+  const name = displayName(d);
+  const blocked = remoteBlocked(d);
   return `
-    <li><a class="device-row" href="#/tv/${encodeURIComponent(d.id)}">
+    <li class="device-row">
       <div class="ico">${ic('tv')}</div>
       <div style="min-width:0">
-        <div class="name">${esc(displayName(d))}</div>
+        <a class="name stretch" href="#/tv/${encodeURIComponent(d.id)}">${esc(name)}</a>
         <div class="meta">${d.label || d.deviceName ? `<span>${esc(model)}</span>` : ''}${d.android ? `<span>Android ${esc(d.android)}</span>` : ''}${viaAgent(d) ? '<span>via ATVM Connect</span>' : `<span class="mono">${esc(d.host)}</span>${d.remote ? '<span>via Tailscale</span>' : ''}`}${d.userNames && d.userNames.length ? `<span>${viaAgent(d) ? 'Ajoutée par' : 'Partagée avec'} ${esc(d.userNames.join(', '))}</span>` : ''}</div>
       </div>
       <div class="side">
@@ -558,9 +584,18 @@ function deviceRow(d) {
         ${d.remote && !d.tsTagged ? '<span class="tag">Sans étiquette Tailscale</span>' : ''}
         <span class="tag"><span class="dot ${auditLabel(d.audit)[0]}"></span>${esc(auditLabel(d.audit)[1])}</span>
       </div>
+      ${blocked
+        ? `<button type="button" class="btn sm remote-btn" aria-disabled="true" data-remote-off="${esc(blocked)}" title="${esc(blocked)}" aria-label="Dépannage de ${esc(name)} indisponible. ${esc(blocked)}">${ic('remote')}<span>Dépannage</span></button>`
+        : `<a class="btn sm remote-btn" href="#/tv/${encodeURIComponent(d.id)}/remote" title="Dépannage à distance" aria-label="Dépannage à distance de ${esc(name)}">${ic('remote')}<span>Dépannage</span></a>`}
       <span class="chev">${ic('chevron')}</span>
-    </a></li>`;
+    </li>`;
 }
+
+// Bouton Dépannage indisponible : on explique pourquoi (l'infobulle ne s'affiche pas sur téléphone)
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-remote-off]');
+  if (b) toast(b.dataset.remoteOff, 'error');
+});
 
 function pendingRow(p) {
   const unauth = p.state === 'unauthorized';
@@ -717,6 +752,8 @@ async function viewDevice(rid, id) {
       </div>
     </section>
 
+    <section class="section" id="accessories"></section>
+
     <section class="section" id="history"></section>
 
     ${isAdmin() ? '<section class="section" id="share"></section>' : ''}
@@ -856,6 +893,7 @@ async function loadDeviceStats(rid, id) {
       <div class="spec"><span class="k">Allumée depuis</span><span class="v">${String(s.uptimeH).replace('.', ',')} <small>h</small></span></div>`;
     drawAudit(rid, id);
     drawInstall(rid, id);
+    drawAccessories(rid, id);
   } catch (e) {
     if (rid !== renderId) return;
     $('#specs').querySelector('.spec').innerHTML = `<span class="k">État</span><span class="status" style="font-size:15px;color:var(--text)"><span class="dot bad"></span>Injoignable</span>`;
@@ -898,7 +936,7 @@ async function drawAudit(rid, id) {
       ? `<div class="note attn">${ic('info')}<div class="stack"><span><b>Une meilleure optimisation est disponible.</b> ${esc(a.next.text)}</span><div><a class="btn sm primary" href="#/tv/${encodeURIComponent(id)}/level/${a.next.level}">Passer au niveau ${a.next.level}</a></div></div></div>`
       : `<div class="note">${ic('check')}<div><b>Optimisation maximale.</b> Rien de plus à faire sur cette TV${c.optional.total > c.optional.done ? ` (il reste ${c.optional.total - c.optional.done} appli${c.optional.total - c.optional.done > 1 ? 's' : ''} « à savoir », à désactiver seulement si tu ne t'en sers pas)` : ''}.</div></div>`}`;
   // Repère du niveau actuel dans le tableau comparatif
-  $('.compare thead th').forEach((th, i) => { if (i === a.level && a.level > 0) th.querySelector('.lvl span').textContent += ' · actuel'; });
+  $$('.compare thead th').forEach((th, i) => { if (i === a.level && a.level > 0) th.querySelector('.lvl span').textContent += ' · actuel'; });
 }
 
 // Applis proposées par l'administrateur : installation APK ou fiche du store ouverte sur la TV
@@ -922,7 +960,7 @@ async function drawInstall(rid, id) {
         <button class="btn sm ${a.installed ? 'quiet' : 'primary'}" data-app-install="${esc(a.id)}">${a.apkUrl ? (a.installed ? 'Réinstaller' : 'Installer') : 'Ouvrir sur le store de la TV'}</button>
       </div>`).join('')}
     </div>`;
-  $('[data-app-install]', box).forEach((b) => b.addEventListener('click', async () => {
+  $$('[data-app-install]', box).forEach((b) => b.addEventListener('click', async () => {
     busy(b, true, 'En cours…');
     try {
       const r = await api(`/api/devices/${encodeURIComponent(id)}/apps/${encodeURIComponent(b.dataset.appInstall)}/install`, { method: 'POST' });
@@ -930,6 +968,122 @@ async function drawInstall(rid, id) {
       drawInstall(renderId, id);
     } catch (e) { toast(e.message, 'error'); busy(b, false); }
   }));
+}
+
+// ---------- Accessoires : ce qui est branché ou appairé sur la TV (lecture seule)
+const ACC_KIND = {
+  remote: ['rc', 'Télécommande'],
+  gamepad: ['gamepad', 'Manette'],
+  keyboard: ['keyboard', 'Clavier'],
+  mouse: ['mouse', 'Souris'],
+  audio: ['headphones', 'Casque ou enceinte'],
+  input: ['rc', "Périphérique d'entrée"],
+  phone: ['bluetooth', 'Téléphone'],
+  computer: ['bluetooth', 'Ordinateur'],
+  storage: ['drive', 'Stockage USB'],
+  camera: ['usb', 'Caméra'],
+  network: ['ethernet', 'Adaptateur réseau'],
+  usb: ['usb', 'Périphérique USB'],
+};
+const ACC_VIA = { bluetooth: 'Bluetooth', usb: 'USB', ir: 'Infrarouge' };
+const CEC_KIND = { player: 'Lecteur ou box', audio: 'Barre de son ou ampli', recorder: 'Enregistreur', tuner: 'Décodeur', switch: 'Commutateur HDMI', processor: 'Processeur vidéo', other: 'Appareil HDMI' };
+const AUDIO_OUT = { speaker: 'Haut-parleurs de la TV', hdmi: 'HDMI', hdmi_arc: 'HDMI ARC', hdmi_earc: 'HDMI eARC', bluetooth: 'Bluetooth', spdif: 'Sortie optique', usb: 'USB', headphone: 'Casque filaire', line: 'Sortie ligne' };
+const VOL_STATE = { MOUNTED: ['ok', 'Prête'], CHECKING: ['note', 'Vérification…'], UNMOUNTED: ['', 'Non montée'], UNMOUNTABLE: ['bad', 'Illisible'], EJECTING: ['note', 'Retrait…'], FORMATTING: ['note', 'Formatage…'], REMOVED: ['', 'Retirée'], BAD_REMOVAL: ['bad', 'Retirée sans éjection'] };
+const WIFI_SIGNAL = { excellent: ['ok', 'Signal excellent'], good: ['ok', 'Bon signal'], fair: ['note', 'Signal moyen'], weak: ['bad', 'Signal faible'] };
+
+const accTag = (dot, label) => `<span class="tag">${dot !== null ? `<span class="dot ${dot}"></span>` : ''}${esc(label)}</span>`;
+const accBattery = (b) => (b === null || b === undefined ? '' : `<span class="tag${b <= 20 ? ' low' : ''}" title="Batterie">${ic('battery')}${b} %</span>`);
+const accItem = (icon, name, detail, tags = '') => `
+  <li class="acc-item">
+    <span class="ico">${ic(icon)}</span>
+    <span class="main"><b>${esc(name)}</b>${detail ? `<span class="sm t2">${esc(detail)}</span>` : ''}</span>
+    ${tags ? `<span class="tags">${tags}</span>` : ''}
+  </li>`;
+const accGroup = (icon, title, items, extra = '') => `
+  <div class="acc-group">${ic(icon)}<span>${esc(title)}</span>${extra ? `<span class="t3">· ${esc(extra)}</span>` : ''}</div>
+  <ul class="acc-list">${items.join('')}</ul>`;
+const accNone = (text) => `<li class="acc-none">${esc(text)}</li>`;
+
+function accessoriesHtml(a) {
+  const groups = [];
+  if (a.bluetooth) {
+    const bt = a.bluetooth;
+    const items = bt.devices.map((d) => {
+      const [icon, kind] = ACC_KIND[d.kind] || ['bluetooth', 'Appareil Bluetooth'];
+      return accItem(icon, d.name, `${kind}${d.tech === 'LE' ? ' · Bluetooth basse consommation' : ''}`,
+        accTag(d.connected ? 'ok' : '', d.connected ? 'Connecté' : 'Appairé, déconnecté') + accBattery(d.battery));
+    });
+    if (!items.length) items.push(accNone(bt.enabled ? 'Aucun appareil appairé.' : 'Bluetooth désactivé : aucun appareil ne peut se connecter.'));
+    groups.push(accGroup('bluetooth', 'Bluetooth', items, bt.enabled ? '' : 'désactivé'));
+  }
+  if (a.inputs && a.inputs.length) {
+    groups.push(accGroup('rc', 'Télécommandes et périphériques', a.inputs.map((i) => {
+      const [icon, kind] = ACC_KIND[i.kind] || ACC_KIND.input;
+      const detail = i.via === 'ir' ? i.detail : [kind !== i.name ? kind : '', ACC_VIA[i.via], i.detail].filter(Boolean).join(' · ');
+      return accItem(icon, i.name, detail, accBattery(i.battery));
+    })));
+  }
+  if (a.usb) {
+    const items = [
+      ...a.usb.volumes.map((v) => {
+        const [dot, st] = VOL_STATE[v.state] || ['', v.state || 'État inconnu'];
+        const space = v.totalMb ? `${fmtMb(v.freeMb)} libres sur ${fmtMb(v.totalMb)}` : '';
+        return accItem('drive', v.name, [v.sd ? 'Carte SD' : 'Clé ou disque USB', v.fs, space].filter(Boolean).join(' · '), accTag(dot, st));
+      }),
+      ...a.usb.devices.map((d) => {
+        const [icon, kind] = ACC_KIND[d.kind] || ACC_KIND.usb;
+        return accItem(icon, d.name, kind !== d.name ? kind : '', accTag('ok', 'Branché'));
+      }),
+    ];
+    if (!items.length) items.push(accNone('Aucune clé, aucun disque ni périphérique USB branché.'));
+    groups.push(accGroup('usb', 'USB', items));
+  }
+  if (a.audio || a.hdmi) {
+    const items = [];
+    const h = a.hdmi;
+    if (a.audio && a.audio.active.length) {
+      const others = a.audio.outputs.filter((o) => !a.audio.active.includes(o)).map((o) => AUDIO_OUT[o] || o);
+      const tags = (h && h.arc ? accTag('ok', 'ARC actif') : '') + (h && h.systemAudio ? accTag('ok', "Volume géré par l'ampli") : '');
+      items.push(accItem('volume', a.audio.active.map((o) => AUDIO_OUT[o] || o).join(' + '), `Sortie audio actuelle${others.length ? ` · aussi disponible : ${others.join(', ')}` : ''}`, tags));
+    }
+    if (h) {
+      for (const d of h.devices) {
+        items.push(accItem(d.kind === 'audio' ? 'volume' : 'hdmi', d.name, [CEC_KIND[d.kind] || CEC_KIND.other, d.port ? `HDMI ${d.port}` : ''].filter(Boolean).join(' · '),
+          d.on === null ? '' : accTag(d.on ? 'ok' : '', d.on ? 'Allumé' : 'En veille')));
+      }
+      if (!h.devices.length) items.push(accNone(h.cec === false ? `Aucun appareil HDMI-CEC détecté (barre de son, box, console…)${h.arcPort ? `. L'ARC se branche sur l'entrée HDMI ${h.arcPort}.` : '.'}` : 'Aucun appareil HDMI-CEC détecté.'));
+    }
+    if (items.length) groups.push(accGroup('hdmi', 'Son et HDMI', items));
+  }
+  if (a.network) {
+    const n = a.network;
+    if (n.type === 'wifi') {
+      const sig = WIFI_SIGNAL[n.signal];
+      groups.push(accGroup('wifi', 'Réseau', [accItem('wifi', n.ssid || 'Wi-Fi', ['Wi-Fi', n.band, n.linkMbps ? `${n.linkMbps} Mb/s` : ''].filter(Boolean).join(' · '), sig ? accTag(sig[0], sig[1]) : '')]));
+    } else if (n.type === 'ethernet') {
+      groups.push(accGroup('ethernet', 'Réseau', [accItem('ethernet', 'Câble Ethernet', 'Connexion filaire', accTag('ok', 'Connecté'))]));
+    }
+  }
+  if (!groups.length) return `<div class="panel panel-pad sm t2">Aucun accessoire détecté sur cette TV.</div>`;
+  return `<div class="panel acc">${groups.join('')}</div>`;
+}
+
+async function drawAccessories(rid, id, btn) {
+  const box = $('#accessories');
+  if (!box) return;
+  const head = (sub) => `<div class="section-head"><h2>Accessoires</h2><div class="acc-head">${sub ? `<span class="sm t3">${esc(sub)}</span>` : ''}<button class="btn sm" id="acc-refresh">${ic('refresh')}Actualiser</button></div></div>`;
+  if (btn) busy(btn, true, 'Lecture…');
+  else box.innerHTML = `${head('')}<div class="panel panel-pad"><span class="status"><span class="spin" style="width:12px;height:12px"></span>Lecture des accessoires…</span></div>`;
+  let html;
+  try {
+    const a = await api(`/api/devices/${encodeURIComponent(id)}/accessories`);
+    html = head(`Lu le ${fmtDate(a.at)}`) + accessoriesHtml(a);
+  } catch (e) {
+    html = `${head('')}<div class="note warn">${ic('alert')}<div>${esc(e.message)}</div></div>`;
+  }
+  if (rid !== renderId) return;
+  box.innerHTML = html;
+  $('#acc-refresh', box).addEventListener('click', (e) => drawAccessories(rid, id, e.currentTarget));
 }
 
 async function drawHistory(rid, id) {
@@ -1925,7 +2079,7 @@ async function drawAppsAdmin(rid) {
       drawAppsAdmin(renderId);
     } catch (e) { toast(e.message, 'error'); busy(btn, false); }
   });
-  $('[data-app-del]', box).forEach((b) => b.addEventListener('click', async () => {
+  $$('[data-app-del]', box).forEach((b) => b.addEventListener('click', async () => {
     try { await api(`/api/admin/apps/${encodeURIComponent(b.dataset.appDel)}/delete`, { method: 'POST' }); drawAppsAdmin(renderId); } catch (e) { toast(e.message, 'error'); }
   }));
 }

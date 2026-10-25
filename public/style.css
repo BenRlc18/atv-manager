@@ -147,11 +147,19 @@ a.btn[aria-disabled=true] { pointer-events: none; }
 /* ---------- Liste d'appareils */
 .list { list-style: none; padding: 0; margin: 0; }
 .list > li + li { border-top: 1px solid var(--line); }
-.device-row { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto 16px; align-items: center; gap: 14px; padding: 14px 18px; color: inherit; }
+.device-row { position: relative; display: grid; grid-template-columns: 36px minmax(0, 1fr) auto auto 16px; align-items: center; gap: 14px; padding: 14px 18px; color: inherit; }
 .device-row:hover { background: var(--sunken); text-decoration: none; }
 .device-row .ico { width: 36px; height: 36px; border-radius: 8px; display: grid; place-items: center; background: var(--sunken); color: var(--text-2); }
 .device-row .ico svg.i { width: 18px; height: 18px; }
-.device-row .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.device-row .name { display: block; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: inherit; }
+/* Lien étiré : toute la ligne ouvre la fiche, le bouton Dépannage reste cliquable au-dessus */
+.device-row .stretch::after { content: ""; position: absolute; inset: 0; }
+.device-row .stretch:hover { text-decoration: none; }
+.device-row .remote-btn { position: relative; z-index: 1; }
+@supports selector(:has(a)) {
+  .device-row .stretch:focus-visible { outline: none; }
+  .device-row:has(.stretch:focus-visible) { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 4px; }
+}
 .device-row .meta { display: flex; gap: 10px; flex-wrap: wrap; color: var(--text-3); font-size: 13px; }
 .device-row .side { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
 .device-row .chev { color: var(--text-3); }
@@ -418,7 +426,7 @@ body.auth-mode main { padding-bottom: 48px; }
   .specs { grid-template-columns: 1fr 1fr; }
   .spec:nth-child(3) { border-left: 0; }
   .spec:nth-child(n+3) { border-top: 1px solid var(--line); }
-  .device-row { grid-template-columns: 36px minmax(0, 1fr) 16px; padding: 14px; }
+  .device-row { grid-template-columns: 36px minmax(0, 1fr) auto 16px; gap: 12px; padding: 14px; }
   .device-row .side { display: none; }
   .pending-row { grid-template-columns: 36px minmax(0, 1fr); padding: 14px; }
   .pending-row .btn { grid-column: 2; justify-self: start; }
@@ -493,3 +501,28 @@ main.wide { max-width: 1680px; }
 .dns-opt p { display: flex; gap: 8px; align-items: center; }
 .bg-row { padding: 12px 18px; }
 .bg-row + .bg-row { border-top: 1px solid var(--line); }
+/* Petit écran : le bouton Dépannage ne garde que son icône (le nom reste lisible) */
+@media (max-width: 420px) { .device-row .remote-btn span { display: none; } .device-row .remote-btn { width: 34px; padding: 0; } }
+
+/* Accessoires */
+.acc-head { display: flex; align-items: center; gap: 10px; }
+.acc { overflow: hidden; }
+.acc-group { display: flex; align-items: center; gap: 8px; padding: 9px 16px; font-size: 12px; font-weight: 600; letter-spacing: .02em; color: var(--text-2); background: var(--sunken); border-bottom: 1px solid var(--line); }
+.acc-group svg.i { width: 14px; height: 14px; color: var(--text-3); }
+.acc-group .t3 { font-weight: 400; }
+.acc-list { list-style: none; padding: 0; margin: 0; }
+.acc-list + .acc-group { border-top: 1px solid var(--line); }
+.acc-item { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 16px; }
+.acc-item + .acc-item { border-top: 1px solid var(--line); }
+.acc-item .ico { width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; background: var(--sunken); color: var(--text-2); }
+.acc-item .main { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.acc-item .main b { font-weight: 500; overflow-wrap: anywhere; }
+.acc-item .tags { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.acc-item .tag svg.i { width: 14px; height: 14px; }
+.acc-item .tag.low { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 35%, var(--line)); }
+.acc-none { padding: 12px 16px; font-size: 13px; color: var(--text-3); }
+@media (max-width: 760px) {
+  .acc-item { grid-template-columns: 32px minmax(0, 1fr); padding: 12px 14px; }
+  .acc-item .tags { grid-column: 2; justify-content: flex-start; }
+  .acc-group, .acc-none { padding-inline: 14px; }
+}
