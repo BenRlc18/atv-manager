@@ -13,6 +13,7 @@ const TS = require('./lib/tailscale');
 const APPS = require('./lib/apps');
 const R = require('./lib/remote');
 const ACC = require('./lib/accessories');
+const RB = require('./lib/reboot');
 
 // Réglages renvoyés à l'interface : la clé API Tailscale n'en sort jamais
 const publicSettings = (s) => ({
@@ -76,6 +77,7 @@ const publicDevice = (d, withUsers) => ({
   host: d.host, port: d.port, remote: !!d.remote, tsName: d.tsName || '', tsTagged: !!d.tsTagged, lastSeen: d.lastSeen, isTv: d.isTv,
   transport: d.transport || 'adb',
   audit: d.audit || null,
+  autoReboot: RB.config(d),
   ...(d.transport === 'agent' ? { agent: AG.status(d.agentId) } : {}),
   ...(withUsers ? { users: d.users || [] } : {}),
 });
@@ -202,6 +204,14 @@ route('GET', '/api/devices/:id', 'user', async (ctx, p) => {
 route('GET', '/api/devices/:id/accessories', 'user', async (ctx, p) => {
   const { target } = await needDevice(ctx.user, p.id);
   return ACC.list(target);
+});
+
+// Redémarrage : à la demande, ou programmé chaque semaine (jamais si l'écran est allumé)
+route('POST', '/api/devices/:id/reboot', 'user', async (ctx, p) => RB.rebootNow((await needDevice(ctx.user, p.id)).target));
+route('POST', '/api/devices/:id/auto-reboot', 'user', async (ctx, p) => {
+  const dev = store.devices()[decodeURIComponent(p.id)];
+  if (!dev || !canSee(ctx.user, dev)) throw fail('Appareil inconnu.', 404);
+  return { autoReboot: RB.save(dev.id, ctx.body) };
 });
 
 route('POST', '/api/devices/:id/rename', 'admin', async (ctx, p) => {
@@ -470,4 +480,5 @@ server.requestTimeout = 0; // le scan et l'optimisation peuvent durer plus d'une
 server.listen(PORT, () => {
   console.log(`ATV Manager ${VERSION} sur http://0.0.0.0:${PORT}${auth.needsSetup() ? ' (premier lancement : crée le compte administrateur)' : ''}`);
   A.adb(['start-server']).then((r) => { if (!r.ok) console.error('adb :', r.err); });
+  RB.start(D.reach);
 });

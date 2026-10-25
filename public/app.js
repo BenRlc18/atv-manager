@@ -752,6 +752,20 @@ async function viewDevice(rid, id) {
       </div>
     </section>
 
+    <section class="section" id="reboot">
+      <div class="panel">
+        <div class="setting">
+          <div><div class="lbl">${ic('refresh')}Redémarrage chaque semaine</div><p class="desc">Beaucoup de TV ne redémarrent jamais vraiment (veille rapide) : la mémoire se remplit au fil des jours et tout ralentit. ATV Manager la redémarre la nuit, jamais pendant que l'écran est allumé.${d.autoReboot && d.autoReboot.last ? ` Dernier redémarrage automatique : ${esc(fmtDate(d.autoReboot.last))}.` : ''}</p></div>
+          <label class="switch"><input type="checkbox" id="rb-on" ${d.autoReboot && d.autoReboot.enabled ? 'checked' : ''} aria-label="Redémarrage chaque semaine"><span></span></label>
+          <div class="more rb-when">
+            <label class="sm">Le <select class="input" id="rb-day">${['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'].map((n, i) => `<option value="${i}" ${(d.autoReboot ? d.autoReboot.day : 1) === i ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+            <label class="sm">à <select class="input" id="rb-hour">${Array.from({ length: 24 }, (_, h) => `<option value="${h}" ${(d.autoReboot ? d.autoReboot.hour : 4) === h ? 'selected' : ''}>${h} h</option>`).join('')}</select></label>
+            <button class="btn sm quiet" id="rb-now">${ic('refresh')}Redémarrer maintenant</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section class="section" id="accessories"></section>
 
     <section class="section" id="history"></section>
@@ -778,6 +792,7 @@ async function viewDevice(rid, id) {
   });
   bindForget(d);
   bindResetLauncher(d);
+  bindReboot(d);
   drawHistory(rid, id);
   loadDeviceStats(rid, id);
 }
@@ -836,6 +851,24 @@ function bindResetLauncher(d) {
     // Rafraîchir l'état (audit) et l'historique
     drawHistory(rid, d.id);
     drawAudit(rid, d.id);
+  });
+}
+
+// Redémarrage hebdomadaire (enregistré à chaque changement) et redémarrage immédiat
+function bindReboot(d) {
+  const save = async () => {
+    try {
+      const r = await api(`/api/devices/${encodeURIComponent(d.id)}/auto-reboot`, { method: 'POST', body: { enabled: $('#rb-on').checked, day: Number($('#rb-day').value), hour: Number($('#rb-hour').value) } });
+      d.autoReboot = r.autoReboot;
+      toast(r.autoReboot.enabled ? 'Redémarrage chaque semaine activé.' : 'Redémarrage chaque semaine désactivé.');
+    } catch (e) { toast(e.message, 'error'); }
+  };
+  ['#rb-on', '#rb-day', '#rb-hour'].forEach((s) => $(s)?.addEventListener('change', save));
+  $('#rb-now')?.addEventListener('click', async (e) => {
+    if (!(await confirmBox({ title: 'Redémarrer la TV maintenant ?', html: '<p>L’écran s’éteint une à deux minutes. Si quelqu’un regarde la TV, préviens-le avant.</p>', confirm: 'Redémarrer' }))) return;
+    busy(e.currentTarget, true, 'Redémarrage…');
+    try { toast((await api(`/api/devices/${encodeURIComponent(d.id)}/reboot`, { method: 'POST' })).message); } catch (err) { toast(err.message, 'error'); }
+    busy(e.currentTarget, false);
   });
 }
 
