@@ -68,6 +68,33 @@ async function wifiInfo(target) {
 }
 const WIFI_WHY = "A enregistré le réseau Wi-Fi de la TV : la retirer effacerait le Wi-Fi (mot de passe à retaper).";
 
+// Claviers de la TV (par défaut et activés) : jamais coupés, sinon plus aucune saisie possible
+async function imeInfo(target) {
+  const r = await A.shell(target, 'settings get secure default_input_method; settings get secure enabled_input_methods', { timeout: 8000 });
+  return new Set([...r.out.matchAll(/([\w.]+)\//g)].map((m) => m[1]));
+}
+const IME_WHY = 'Clavier de la TV : le couper empêcherait toute saisie (recherche, mots de passe).';
+
+// Applis système mises à jour (copie dans /data/app) et place prise par la mise à jour, en Mo
+async function updatedSizes(target, pkgs) {
+  const list = [...pkgs].filter((p) => /^[\w.]+$/.test(p));
+  if (!list.length) return new Map();
+  const r = await A.shell(target, `for p in ${list.join(' ')}; do f=$(pm path $p 2>/dev/null | grep -m1 /data/app/ | cut -d: -f2); [ -n "$f" ] && echo "$p=$(du -sk "\${f%/*}" | cut -f1)"; done`, { timeout: 60000 });
+  return new Map(Object.entries(A.parseKv(r.out)).map(([p, kb]) => [p, Math.round((Number(kb) || 0) / 1024)]));
+}
+
+// Applis autorisées ou non à tourner en arrière-plan (appop RUN_ANY_IN_BACKGROUND)
+async function backgroundState(target, pkgs) {
+  const list = [...pkgs].filter((p) => /^[\w.]+$/.test(p));
+  if (!list.length) return new Map();
+  const r = await A.shell(target, `for p in ${list.join(' ')}; do echo "$p=$(cmd appops get $p RUN_ANY_IN_BACKGROUND 2>/dev/null | head -1)"; done`, { timeout: 30000 });
+  return new Map(Object.entries(A.parseKv(r.out)).map(([p, v]) => [p, /ignore|deny/.test(v)]));
+}
+const plural2 = (n, one, many) => `${n} ${n > 1 ? many : one}`;
+const BG = catalog.background || { suggested: [], never: [] };
+const bgSuggested = new Map(BG.suggested.map((b) => [b.pkg, b]));
+const bgNever = new Set(BG.never);
+
 async function ramFreeMb(target) {
   const r = await A.shell(target, 'grep "^MemAvailable:" /proc/meminfo', { timeout: 8000 });
   const m = r.out.match(/(\d+)/);
@@ -159,7 +186,7 @@ const LEVELS = {
   2: {
     title: 'Moyen',
     summary: 'Niveau léger + désactivation des applis inutiles.',
-    gains: ['Tout le niveau léger', 'Mémoire libérée durablement : les applis désactivées ne tournent plus du tout', "Moins de mises à jour et de publicité en arrière-plan"],
+    gains: ['Tout le niveau léger', 'Mémoire libérée durablement : les applis désactivées ne tournent plus du tout', 'Applis gardées mais peu utilisées bloquées en arrière-plan (au choix)', "Moins de mises à jour et de publicité en arrière-plan", 'En option : stockage récupéré (mises à jour des applis désactivées)'],
     losses: ['Les fonctions des applis désactivées (indiquées pour chacune)', 'Tout reste réactivable depuis l\'historique'],
   },
   3: {
@@ -173,10 +200,12 @@ const LEVELS = {
 // Aperçu de ce que ferait un niveau
 async function plan(target, dev, level, mode = 'recommended') {
   level = Math.min(3, Math.max(1, Number(level) || 1));
-  const [pk, mem, settings, ramFree, wifi, props] = await Promise.all([listPackages(target), memoryByPackage(target), getSettings(target), ramFreeMb(target), wifiInfo(target), modelProps(target, dev)]);
+  const [pk, mem, settings, ramFree, wifi, props, ime] = await Promise.all([listPackages(target), memoryByPackage(target), getSettings(target), ramFreeMb(target), wifiInfo(target), modelProps(target, dev), imeInfo(target)]);
   const installed = new Set([...pk.system, ...pk.user]);
   const memMb = (pkg) => Math.round(((mem.get(pkg) || 0) / 1024) * 10) / 10;
-  const wifiLock = (a) => (wifi.owners.has(a.pkg) && !a.disabled ? { ...a, risk: 'protected', why: WIFI_WHY, checked: false, locked: true } : a);
+  const wifiLock = (a) => (a.disabled ? a
+    : wifi.owners.has(a.pkg) ? { ...a, risk: 'protected', why: WIFI_WHY, checked: false, locked: true }
+      : ime.has(a.pkg) ? { ...a, risk: 'protected', why: IME_WHY, checked: false, locked: true } : a);
 
   const animSkipped = isFireTv(dev);
   const settingsChanges = animSkipped ? [] : ANIMATION_KEYS.map((k) => ({ key: k, from: settings[k] && settings[k] !== 'null' ? settings[k] : '1.0', to: ANIMATION_TARGET }))
@@ -261,10 +290,31 @@ async function plan(target, dev, level, mode = 'recommended') {
     launcher.stockDisable = { allowed: chk.ok, why: chk.why, rivals: chk.rivals };
   }
 
+  // Niveau 2 et plus : stockage récupérable (mises à jour des applis système désactivées) et applis gardées
+  // qu'on peut empêcher de tourner en arrière-plan
+  let storage = null;
+  let background = [];
+  if (level >= 2) {
+    // Seulement les applis système : une appli installée par l'utilisateur n'a pas de « version d'usine »
+    const sysCandidates = new Set([...apps.filter((a) => !a.locked).map((a) => a.pkg), ...pk.disabled].filter((p) => pk.system.has(p)));
+    for (const p of sysCandidates) if (isProtected(p) || wifi.owners.has(p) || ime.has(p)) sysCandidates.delete(p);
+    const upd = await updatedSizes(target, sysCandidates);
+    for (const a of apps) if (upd.has(a.pkg)) a.updMb = upd.get(a.pkg);
+    const already = [...pk.disabled].filter((p) => upd.has(p));
+    storage = { sdk: Number(settings.sdk) || 0, disabledMb: already.reduce((s, p) => s + upd.get(p), 0), disabledCount: already.length };
+
+    const keep = [...pk.user].filter((p) => !pk.disabled.has(p) && !bgNever.has(p) && !homePkgs.has(p) && !ime.has(p) && !isProtected(p));
+    const state = await backgroundState(target, keep);
+    background = keep.map((p) => {
+      const s = bgSuggested.get(p);
+      return { pkg: p, name: s ? s.name : p, why: s ? s.why : '', memMb: memMb(p), restricted: !!state.get(p), checked: !state.get(p) && !!(s && s.default) };
+    }).sort((x, y) => Number(!!bgSuggested.get(y.pkg)) - Number(!!bgSuggested.get(x.pkg)) || x.name.localeCompare(y.name));
+  }
+
   const checkedMem = apps.filter((a) => a.checked).reduce((s, a) => s + a.memMb, 0);
   const scanChanges = SCAN_KEYS.filter((k) => settings[k] !== '0').map((k) => ({ key: k, label: SETTING_LABELS[k], from: settings[k] && settings[k] !== 'null' ? settings[k] : 'défaut', to: '0' }));
   return {
-    level, mode, info: LEVELS[level], levels: LEVELS, settingsChanges, scanChanges, dns: dnsState(settings), animSkipped, apps, launcher,
+    level, mode, info: LEVELS[level], levels: LEVELS, settingsChanges, scanChanges, dns: dnsState(settings), animSkipped, apps, launcher, storage, background,
     ramFreeMb: ramFree, estimateMb: Math.round(checkedMem), cleanyourtv: CYT.summary(detected),
   };
 }
@@ -286,10 +336,14 @@ async function apply(target, dev, body) {
   const level = Math.min(3, Math.max(1, Number(body.level) || 1));
   const wanted = Array.isArray(body.apps) ? [...new Set(body.apps.map(String))] : [];
   return withLock(dev.id, async () => {
-    const [pk, wifi, props] = await Promise.all([listPackages(target), wifiInfo(target), modelProps(target, dev)]);
+    const [pk, wifi, props, ime] = await Promise.all([listPackages(target), wifiInfo(target), modelProps(target, dev), imeInfo(target)]);
     const installed = new Set([...pk.system, ...pk.user]);
     const detected = CYT.detect(props);
     const cytKept = (pkg) => CYT.keptBy(detected.models, pkg);
+    const homesNow = new Set((await homeActivities(target)).map((c) => c.split('/')[0]));
+    // Applis gardées à bloquer en arrière-plan : seulement des applis installées, jamais une appli indispensable
+    const bgWanted = Array.isArray(body.background) ? [...new Set(body.background.map(String))]
+      .filter((p) => pk.user.has(p) && !pk.disabled.has(p) && !bgNever.has(p) && !homesNow.has(p) && !ime.has(p) && !isProtected(p)) : [];
 
     // Validation avant toute modification
     const refused = [];
@@ -300,6 +354,7 @@ async function apply(target, dev, body) {
       if (!installed.has(pkg)) refused.push({ pkg, reason: 'non installée' });
       else if (pk.disabled.has(pkg)) continue;
       else if (wifi.owners.has(pkg)) wifiKept.push(pkg); // jamais : la TV perdrait son Wi-Fi
+      else if (ime.has(pkg)) refused.push({ pkg, reason: 'clavier de la TV' });
       else if (isProtected(pkg) && !meta) refused.push({ pkg, reason: 'protégée' });
       else if (!meta && cytKept(pkg)) refused.push({ pkg, reason: 'gardée par CleanYourTV sur ce modèle' });
       else if (meta && meta.level > level) refused.push({ pkg, reason: `réservée au niveau ${meta.level}` });
@@ -311,7 +366,7 @@ async function apply(target, dev, body) {
       throw Object.assign(new Error(`Certaines applis ne peuvent pas être retirées : ${refused.map((r) => `${r.pkg} (${r.reason})`).join(', ')}`), { code: 400, refused });
     }
 
-    const snap = { id: Date.now().toString(36), at: new Date().toISOString(), level, settings: {}, apps: [], home: null, log: [], restored: false };
+    const snap = { id: Date.now().toString(36), at: new Date().toISOString(), level, settings: {}, secure: {}, apps: [], background: [], reclaimed: [], home: null, log: [], restored: false };
     snap.ramBefore = await ramFreeMb(target);
     const log = (ok, text) => snap.log.push({ ok, text });
 
@@ -336,6 +391,8 @@ async function apply(target, dev, body) {
     log(trim.ok, trim.ok ? 'Caches des applis vidés (temporaire : ils se reconstituent à l’usage)' : `Vidage des caches : ${trim.err || 'échec'}`);
     const kill = await A.shell(target, 'am kill-all');
     log(kill.ok, kill.ok ? 'Applis en arrière-plan fermées (temporaire : Android en relance certaines)' : `Fermeture des applis : ${kill.err || 'échec'}`);
+    // Fichiers laissés sur la TV par d'anciennes versions d'ATVM (captures, inspection d'écran)
+    await A.shell(target, 'rm -f /sdcard/atvm.png /sdcard/ui.xml');
 
     // 3. Applis
     for (const pkg of wifiKept) log(true, `${byPkg.get(pkg)?.name || pkg} conservée : elle a enregistré le Wi-Fi de la TV`);
@@ -350,7 +407,51 @@ async function apply(target, dev, body) {
       if (after.ok) log(after.networks >= wifi.networks, after.networks >= wifi.networks ? 'Wi-Fi : réseaux enregistrés conservés' : `Wi-Fi : ${wifi.networks - after.networks} réseau(x) enregistré(s) perdu(s), à ressaisir dans les paramètres`);
     }
 
-    // 3 bis. DNS anti-pub (option) ; annulé tout de suite si la TV n'arrive plus à joindre Internet
+    // 3 bis. Économiseur d'écran : s'il pointe vers une appli désactivée (Mode Ambiant coupé), on passe sur
+    // l'économiseur basique ; s'il est coupé lui aussi, on désactive l'économiseur plutôt que de laisser un réglage cassé
+    const disabledNow = (await listPackages(target)).disabled;
+    const ss = await A.shell(target, 'echo c=$(settings get secure screensaver_components); echo e=$(settings get secure screensaver_enabled)');
+    const ssKv = A.parseKv(ss.out);
+    const ssPkg = (ssKv.c || '').split('/')[0];
+    if (ssPkg && ssPkg !== 'null' && disabledNow.has(ssPkg)) {
+      snap.secure.screensaver_components = ssKv.c;
+      if (!disabledNow.has('com.android.dreams.basic')) {
+        await A.shell(target, 'settings put secure screensaver_components com.android.dreams.basic/.Colors');
+        log(true, "Économiseur d'écran : Mode Ambiant coupé, remplacé par l'économiseur basique (très léger)");
+      } else {
+        snap.secure.screensaver_enabled = ssKv.e || 'null';
+        await A.shell(target, 'settings put secure screensaver_enabled 0');
+        log(true, "Économiseur d'écran désactivé : aucun économiseur n'est plus actif sur la TV");
+      }
+    }
+
+    // 3 ter. Applis gardées : plus de démarrage en arrière-plan (elles marchent normalement quand on les ouvre)
+    for (const pkg of bgWanted) {
+      const r = await A.shell(target, `cmd appops set ${pkg} RUN_ANY_IN_BACKGROUND ignore && am set-standby-bucket ${pkg} restricted`);
+      if (r.ok) snap.background.push(pkg);
+      log(r.ok, `${bgSuggested.get(pkg)?.name || pkg} ${r.ok ? 'ne tourne plus en arrière-plan' : `: ${r.err || 'échec'}`}`);
+    }
+
+    // 3 quater. Stockage (option) : les applis système désactivées reviennent à leur version d'usine,
+    // ce qui supprime leurs mises à jour de /data. Réactivées, elles se remettent à jour par le Play Store
+    if (body.reclaim && level >= 2) {
+      const pkAfter = await listPackages(target);
+      const cands = [...pkAfter.disabled].filter((p) => pkAfter.system.has(p) && !isProtected(p) && !wifi.owners.has(p) && !ime.has(p));
+      const upd = await updatedSizes(target, cands);
+      let freed = 0;
+      for (const [pkg, mb] of upd) {
+        const r = await A.shell(target, `pm uninstall-system-updates ${pkg}`, { timeout: 60000 });
+        if (!/Success/i.test(r.out)) { log(false, `${byPkg.get(pkg)?.name || pkg} : mise à jour non retirée (${r.err || r.out || 'échec'})`); continue; }
+        // Revenir à la version d'usine peut réactiver l'appli : on la désactive de nouveau
+        const st = await A.shell(target, `pm list packages -d | grep -qx "package:${pkg}" || pm disable-user --user 0 ${pkg}`);
+        snap.reclaimed.push(pkg);
+        freed += mb;
+        log(st.ok, `${byPkg.get(pkg)?.name || pkg} : mise à jour retirée (${mb} Mo)`);
+      }
+      log(true, upd.size ? `Stockage récupéré : environ ${freed} Mo` : 'Stockage : aucune mise à jour à retirer');
+    }
+
+    // 3 quinquies. DNS anti-pub (option) ; annulé tout de suite si la TV n'arrive plus à joindre Internet
     if (body.dns) {
       const dns = dnsState(before);
       if (!dns.available) log(false, 'DNS anti-pub : demande Android 9 ou plus récent');
@@ -540,6 +641,17 @@ async function restore(target, dev, { snapshot = 'all', pkg = null } = {}) {
         const cmd = !old || old === 'null' ? `settings delete global ${key}` : `settings put global ${key} ${old}`;
         const r = await A.shell(target, cmd);
         log.push({ ok: r.ok, text: `${settingLabel(key)} → ${!old || old === 'null' ? 'valeur par défaut' : old}` });
+      }
+      for (const [key, old] of Object.entries(snap.secure || {})) {
+        const r = await A.shell(target, !old || old === 'null' ? `settings delete secure ${key}` : `settings put secure ${key} ${old}`);
+        log.push({ ok: r.ok, text: "Économiseur d'écran d'origine remis" });
+      }
+      for (const p of snap.background || []) {
+        const r = await A.shell(target, `cmd appops set ${p} RUN_ANY_IN_BACKGROUND allow && am set-standby-bucket ${p} active`);
+        log.push({ ok: r.ok, text: `${bgSuggested.get(p)?.name || p} de nouveau autorisée en arrière-plan` });
+      }
+      if ((snap.reclaimed || []).length) {
+        log.push({ ok: true, text: `${plural2(snap.reclaimed.length, 'appli réactivée revient', 'applis réactivées reviennent')} en version d'usine : le Play Store les remettra à jour` });
       }
       snap.restored = true;
       snap.restoredAt = new Date().toISOString();

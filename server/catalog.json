@@ -122,8 +122,8 @@
     {
       "pkg": "com.google.android.tungsten.setupwraith",
       "name": "Assistant de configuration Google TV",
-      "level": 2,
-      "risk": "info",
+      "level": 3,
+      "risk": "warn",
       "category": "Configuration terminée",
       "why": "Ne sert qu'à la première installation.",
       "loss": "Certains réglages de compte passent par lui ; réactivable depuis l'historique."
@@ -135,7 +135,7 @@
       "risk": "info",
       "category": "Économiseur d'écran",
       "why": "Diaporama en veille qui consomme de la mémoire.",
-      "loss": "Plus d'économiseur d'écran photos."
+      "loss": "Plus d’économiseur photos : ATVM passe sur l’économiseur basique, très léger."
     },
     {
       "pkg": "com.google.android.backdrop",
@@ -153,7 +153,7 @@
       "risk": "info",
       "category": "Économiseur d'écran",
       "why": "Économiseur d'écran simple.",
-      "loss": "Plus d'économiseur d'écran par défaut."
+      "loss": "Plus d'économiseur de secours. Ne pas le couper si le Mode Ambiant (dreamx) est déjà coupé."
     },
     {
       "pkg": "com.google.android.tvrecommendations",
@@ -188,7 +188,7 @@
       "level": 2,
       "risk": "info",
       "category": "Accessibilité",
-      "why": "Lecture vocale de texte.",
+      "why": "Lecture vocale de texte. Occupe environ 345 Mo avec ses voix téléchargées.",
       "loss": "Lecture à voix haute (accessibilité)."
     },
     {
@@ -224,7 +224,7 @@
       "level": 2,
       "risk": "warn",
       "category": "Voix",
-      "why": "Gros consommateur de mémoire.",
+      "why": "Occupe environ 50 Mo de mémoire en permanence pour attendre le bouton micro.",
       "loss": "Le bouton micro et la recherche vocale ne marchent plus."
     },
     {
@@ -256,16 +256,6 @@
       "loss": "Aucune."
     },
     {
-      "pkg": "com.tcl.factory.view",
-      "name": "Tests usine",
-      "level": 2,
-      "risk": "warn",
-      "category": "Fabricant",
-      "brand": "TCL",
-      "why": "Outil de test en usine, mais CleanYourTV le classe « à ne jamais désactiver » sur plusieurs TCL (menus et réglages système qui en dépendent).",
-      "loss": "Risque de menus ou réglages TCL cassés selon le modèle."
-    },
-    {
       "pkg": "com.tcl.esticker",
       "name": "Stickers TCL",
       "level": 2,
@@ -274,16 +264,6 @@
       "brand": "TCL",
       "why": "Autocollants promotionnels.",
       "loss": "Aucune."
-    },
-    {
-      "pkg": "com.tcl.initsetup",
-      "name": "Configuration initiale TCL",
-      "level": 2,
-      "risk": "warn",
-      "category": "Configuration terminée",
-      "brand": "TCL",
-      "why": "Assistant de première installation TCL. CleanYourTV le classe « à ne jamais désactiver » sur plusieurs TCL.",
-      "loss": "Risque de blocage au démarrage ou à la recherche des chaînes selon le modèle."
     },
     {
       "pkg": "com.tcl.ocean.instructions",
@@ -333,7 +313,7 @@
       "category": "Publicité / suggestions",
       "brand": "TCL",
       "why": "Contenus et applis partenaires.",
-      "loss": "Aucune."
+      "loss": "La touche TCL de la télécommande peut ne plus ouvrir la page TCL. Les onglets de l'accueil reprennent leurs noms Google."
     },
     {
       "pkg": "com.tcl.gamebar",
@@ -343,7 +323,7 @@
       "category": "Fabricant",
       "brand": "TCL",
       "why": "Superposition pour les jeux.",
-      "loss": "La barre de jeu."
+      "loss": "La barre de jeu affichée avec les consoles (infos VRR et mode jeu)."
     },
     {
       "pkg": "com.tcl.channelplus",
@@ -353,7 +333,7 @@
       "category": "Publicité / suggestions",
       "brand": "TCL",
       "why": "Chaînes gratuites financées par la publicité.",
-      "loss": "Ces chaînes."
+      "loss": "Ces chaînes, qui disparaissent aussi de la TV en direct."
     },
     {
       "pkg": "com.tcl.interactive",
@@ -399,27 +379,27 @@
       "pkg": "com.tcl.ttvs",
       "name": "Services TV TCL",
       "level": 2,
-      "risk": "info",
+      "risk": "warn",
       "category": "Publicité / suggestions",
       "brand": "TCL",
-      "why": "Télémétrie et publicités TCL.",
-      "loss": "Certains services en ligne TCL."
+      "why": "Statistiques TCL, Samba TV, Alexa et T-Cast, mais aussi les mises à jour du système TCL.",
+      "loss": "Les mises à jour TCL peuvent ne plus arriver. T-Cast et Alexa ne marchent plus. À réactiver avant de chercher une mise à jour."
     },
     {
       "pkg": "com.tcl.dashboard",
       "name": "Tableau de bord TCL",
       "level": 2,
-      "risk": "info",
+      "risk": "warn",
       "category": "Publicité / suggestions",
       "brand": "TCL",
       "why": "Recommandations et publicités.",
-      "loss": "Le tableau de bord TCL."
+      "loss": "Le panneau de réglages rapides TCL et certaines touches de la télécommande peuvent ne plus rien faire."
     },
     {
       "pkg": "com.tcl.messagebox",
       "name": "Messages TCL",
       "level": 2,
-      "risk": "info",
+      "risk": "safe",
       "category": "Fabricant",
       "brand": "TCL",
       "why": "Notifications du fabricant.",
@@ -439,10 +419,10 @@
       "pkg": "com.tcl.guard",
       "name": "Sécurité TCL",
       "level": 2,
-      "risk": "info",
+      "risk": "safe",
       "category": "Fabricant",
       "brand": "TCL",
-      "why": "Outil de nettoyage du fabricant.",
+      "why": "« Nettoyeur » de mémoire TCL qui se lance au démarrage. Android gère déjà la mémoire tout seul.",
       "loss": "L'outil de nettoyage TCL."
     },
     {
@@ -457,13 +437,13 @@
     },
     {
       "pkg": "com.tcl.t_solo",
-      "name": "Commande vocale TCL",
+      "name": "Écoute solo au casque (T-Solo)",
       "level": 2,
       "risk": "info",
-      "category": "Voix",
+      "category": "Fabricant",
       "brand": "TCL",
-      "why": "Assistant vocal du fabricant.",
-      "loss": "La commande vocale TCL."
+      "why": "« T-Solo » : écouter au casque Bluetooth en coupant les haut-parleurs de la TV.",
+      "loss": "Le mode « écoute solo » au casque Bluetooth. Le casque reste utilisable normalement."
     },
     {
       "pkg": "com.droidlogic.FileBrower",
@@ -473,6 +453,78 @@
       "category": "Fabricant",
       "why": "Explorateur basique des boîtiers Amlogic.",
       "loss": "L'explorateur de fichiers intégré."
+    },
+    {
+      "pkg": "tv.samba.ssm.ui",
+      "name": "Samba TV (suivi de ce que tu regardes)",
+      "level": 1,
+      "risk": "safe",
+      "category": "Télémétrie",
+      "why": "Reconnaît ce qui passe à l'écran (même en HDMI) et l'envoie à des publicitaires.",
+      "loss": "Aucune pour l'utilisateur."
+    },
+    {
+      "pkg": "android.autoinstalls.config.google.gtvpai",
+      "name": "Installation automatique d'applis partenaires",
+      "level": 2,
+      "risk": "safe",
+      "category": "Publicité / suggestions",
+      "why": "Installe en silence des applis de partenaires choisies par le fabricant.",
+      "loss": "Aucune."
+    },
+    {
+      "pkg": "com.tcl.tv.tclhome_passive",
+      "name": "Contenus TCL sur l'accueil",
+      "level": 2,
+      "risk": "info",
+      "category": "Publicité / suggestions",
+      "why": "Pousse des contenus TCL sur l'écran d'accueil à chaque démarrage.",
+      "loss": "Aucune sur les TCL Google TV récentes. Sur certains modèles TCL plus anciens (G08 MediaTek), il est jugé indispensable."
+    },
+    {
+      "pkg": "com.tcl.miracast",
+      "name": "Recopie d'écran Miracast (TCL)",
+      "level": 2,
+      "risk": "info",
+      "category": "Diffusion",
+      "why": "Tourne en permanence pour recevoir la recopie d'écran des téléphones Android.",
+      "loss": "Plus de recopie d'écran Miracast. Chromecast et AirPlay ne sont pas touchés."
+    },
+    {
+      "pkg": "com.realtek.airplay2",
+      "name": "AirPlay (moteur)",
+      "level": 2,
+      "risk": "info",
+      "category": "Diffusion",
+      "why": "Service AirPlay toujours lancé, même sans iPhone dans la maison.",
+      "loss": "Plus de diffusion depuis un iPhone, un iPad ou un Mac."
+    },
+    {
+      "pkg": "com.tcl.airplay2",
+      "name": "AirPlay (lancement TCL)",
+      "level": 2,
+      "risk": "info",
+      "category": "Diffusion",
+      "why": "Démarre AirPlay à l'allumage. À couper avec le moteur AirPlay.",
+      "loss": "Plus de diffusion depuis un iPhone, un iPad ou un Mac."
+    },
+    {
+      "pkg": "com.tcl.android.webview",
+      "name": "Ancien moteur web TCL",
+      "level": 2,
+      "risk": "safe",
+      "category": "Fabricant",
+      "why": "Vieux moteur web (Chrome 78) inutilisé : c'est celui de Google qui sert.",
+      "loss": "Aucune tant que le moteur web de Google reste actif."
+    },
+    {
+      "pkg": "com.tcl.ui_mediaCenter",
+      "name": "Lecteur de clé USB TCL",
+      "level": 2,
+      "risk": "info",
+      "category": "Fabricant",
+      "why": "Lecteur photos, vidéos et musique pour clé USB et partage réseau (DLNA).",
+      "loss": "Plus de lecture depuis une clé USB sans appli comme Kodi ou VLC."
     }
   ],
   "protected": [
@@ -510,7 +562,25 @@
     "com.android.cellbroadcastreceiver",
     "com.tailscale.ipn",
     "io.github.benrlc18.atvmconnect",
-    "com.google.android.tv.frameworkpackagestubs"
+    "com.tcl.factory.view",
+    "com.tcl.initsetup",
+    "com.android.tv.frameworkpackagestubs",
+    "com.tcl.tvinput",
+    "com.tcl.tv",
+    "com.tcl.systemserver",
+    "com.tcl.autopair",
+    "com.tcl.suspension",
+    "com.tcl.globalkeyoverlay",
+    "com.tcl.providers.config",
+    "com.tcl.inputmethod.international",
+    "com.google.android.inputmethod.latin",
+    "com.tvos",
+    "com.realtek.power",
+    "com.realtek.dongledetect",
+    "com.realtek.tv.overlay.framework",
+    "com.netflix.tokenmanager",
+    "com.android.vpndialogs",
+    "com.android.inputdevices"
   ],
   "protectedPrefixes": [
     "com.android.providers.settings",
@@ -609,5 +679,141 @@
         "https://raw.githubusercontent.com/aradhyas8/Plume_Launcher/main/docs/home-dark.jpg"
       ]
     }
-  ]
+  ],
+  "background": {
+    "_doc": "Applis installées qu'on peut empêcher de tourner en arrière-plan (appop RUN_ANY_IN_BACKGROUND + groupe « restricted »). default = pré-coché. never = jamais proposé (VPN, lanceurs, remappeurs, ATVM Connect, services Google, applis qui reçoivent du contenu en arrière-plan).",
+    "suggested": [
+      {
+        "pkg": "cm.aptoidetv.pt",
+        "name": "Aptoide TV",
+        "why": "Magasin d'applis qui vérifie les mises à jour en arrière-plan.",
+        "default": true
+      },
+      {
+        "pkg": "com.esaba.downloader",
+        "name": "Downloader",
+        "why": "Ne sert qu'à télécharger un fichier de temps en temps.",
+        "default": true
+      },
+      {
+        "pkg": "org.xbmc.kodi",
+        "name": "Kodi",
+        "why": "Peu utilisé (groupe « rare »).",
+        "default": true
+      },
+      {
+        "pkg": "tv.twitch.android.app",
+        "name": "Twitch",
+        "why": "N'a rien à faire en arrière-plan.",
+        "default": true
+      },
+      {
+        "pkg": "tv.wuaki.apptv",
+        "name": "Rakuten TV",
+        "why": "N'a rien à faire en arrière-plan.",
+        "default": true
+      },
+      {
+        "pkg": "fr.tf1.mytf1",
+        "name": "TF1+",
+        "why": "N'a rien à faire en arrière-plan.",
+        "default": true
+      },
+      {
+        "pkg": "fr.m6.m6replay",
+        "name": "M6+",
+        "why": "N'a rien à faire en arrière-plan.",
+        "default": true
+      },
+      {
+        "pkg": "fr.francetv.pluzz",
+        "name": "france.tv",
+        "why": "N'a rien à faire en arrière-plan.",
+        "default": true
+      },
+      {
+        "pkg": "com.canal.android.canal",
+        "name": "Canal+",
+        "why": "N'a rien à faire en arrière-plan.",
+        "default": true
+      },
+      {
+        "pkg": "net.oqee.androidtv.store",
+        "name": "Oqee",
+        "why": "N'a rien à faire en arrière-plan.",
+        "default": true
+      },
+      {
+        "pkg": "fr.bouyguestelecom.tv.bbui",
+        "name": "B.tv+",
+        "why": "N'a rien à faire en arrière-plan.",
+        "default": true
+      },
+      {
+        "pkg": "com.crunchyroll.crunchyroid",
+        "name": "Crunchyroll",
+        "why": "N'a rien à faire en arrière-plan.",
+        "default": true
+      },
+      {
+        "pkg": "com.disney.disneyplus",
+        "name": "Disney+",
+        "why": "N'a rien à faire en arrière-plan.",
+        "default": true
+      },
+      {
+        "pkg": "org.jellyfin.androidtv",
+        "name": "Jellyfin",
+        "why": "N'a rien à faire en arrière-plan.",
+        "default": true
+      },
+      {
+        "pkg": "com.plexapp.android",
+        "name": "Plex",
+        "why": "N'a rien à faire en arrière-plan.",
+        "default": true
+      },
+      {
+        "pkg": "com.google.android.youtube.tvmusic",
+        "name": "YouTube Music",
+        "why": "Peu utilisé (groupe « restreint »).",
+        "default": true
+      },
+      {
+        "pkg": "com.spotify.tv.android",
+        "name": "Spotify",
+        "why": "Reste en mémoire (59 Mo mesurés) même quand tu ne l'utilises pas.",
+        "default": false
+      },
+      {
+        "pkg": "com.nathnetwork.atlaspromax",
+        "name": "Atlas Pro Max",
+        "why": "Appli IPTV : à bloquer si tu ne t’en sers pas souvent.",
+        "default": false
+      },
+      {
+        "pkg": "com.shadeed.atlasproibo",
+        "name": "Atlas Pro IBO",
+        "why": "Appli IPTV : à bloquer si tu ne t’en sers pas souvent.",
+        "default": false
+      },
+      {
+        "pkg": "shadeed.Atlaspro9x",
+        "name": "Atlas Pro 9x",
+        "why": "Appli IPTV : à bloquer si tu ne t’en sers pas souvent.",
+        "default": false
+      }
+    ],
+    "never": [
+      "com.tailscale.ipn",
+      "io.github.benrlc18.atvmconnect",
+      "flar2.homebutton",
+      "com.overdevs.at4k",
+      "com.google.android.youtube.tv",
+      "com.netflix.ninja",
+      "com.orange.owtv.tv",
+      "com.android.vending",
+      "com.google.android.gms"
+    ]
+  }
 }

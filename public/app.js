@@ -987,7 +987,7 @@ async function viewOptimize(rid, id, levelStr) {
   const level = Number(levelStr);
   const d = S.devices.find((x) => x.id === id);
   if (!d) throw new Error("Cette TV n'est plus enregistrée.");
-  const st = { plan: null, mode: 'recommended', sel: new Set(), launcher: null, disableStock: false, dns: false, q: '', filter: 'all' };
+  const st = { plan: null, mode: 'recommended', sel: new Set(), bg: new Set(), launcher: null, disableStock: false, dns: false, reclaim: false, q: '', filter: 'all' };
   const L = S.levels[level] || {};
   const head = () => `
     ${crumbs([['Appareils', '#/'], [displayName(d), `#/tv/${encodeURIComponent(id)}`], [`Niveau ${level}`]])}
@@ -999,12 +999,16 @@ async function viewOptimize(rid, id, levelStr) {
     if (rid !== renderId) return;
     // Premier chargement : sélection recommandée. Ensuite (changement de mode) : on garde les choix.
     const prev = st.plan ? st.sel : null;
+    const prevBg = st.plan ? st.bg : null;
     st.plan = plan;
     st.sel = new Set(plan.apps.filter((a) => !a.disabled && !a.locked && (prev ? prev.has(a.pkg) : a.checked)).map((a) => a.pkg));
+    st.bg = new Set((plan.background || []).filter((b) => !b.restricted && (prevBg ? prevBg.has(b.pkg) : b.checked)).map((b) => b.pkg));
     draw();
   };
 
   const selected = () => st.plan.apps.filter((a) => st.sel.has(a.pkg));
+  // Stockage récupérable : applis déjà désactivées + celles cochées pour ce niveau
+  const reclaimMb = () => ((st.plan.storage && st.plan.storage.disabledMb) || 0) + selected().reduce((s, a) => s + (a.disabled ? 0 : a.updMb || 0), 0);
   const lossy = (a) => a.risk !== 'safe' && a.level !== 1;
 
   const draw = () => {
@@ -1045,6 +1049,22 @@ async function viewOptimize(rid, id, levelStr) {
         </div>
       </section>
 
+      ${level >= 2 && p.background && p.background.length ? `
+      <section class="section">
+        <div class="section-head"><h2>Applis gardées : arrière-plan</h2><p>Elles marchent normalement quand tu les ouvres, mais ne tournent plus en cachette.</p></div>
+        <div class="panel">${p.background.map((b) => `
+          <label class="check bg-row ${b.restricted ? 'is-off' : ''}"><input type="checkbox" data-bg="${esc(b.pkg)}" ${b.restricted ? 'checked disabled' : st.bg.has(b.pkg) ? 'checked' : ''}><span><b>${esc(b.name)}</b>${b.memMb ? ` <span class="t3 num">${fmtMb(b.memMb)}</span>` : ''}${b.restricted ? ' <span class="tag">Déjà bloquée</span>' : ''}${b.why ? `<br><span class="t2 sm">${esc(b.why)}</span>` : ''}</span></label>`).join('')}
+        </div>
+      </section>` : ''}
+
+      ${level >= 2 && p.storage && p.storage.sdk >= 29 ? `
+      <section class="section">
+        <div class="section-head"><h2>Stockage</h2></div>
+        <div class="panel panel-pad">
+          <label class="check"><input type="checkbox" id="reclaim" ${st.reclaim ? 'checked' : ''}><span><b>Récupérer la place des applis désactivées (environ <span id="reclaim-mb">${fmtMb(reclaimMb())}</span>)</b><br><span class="t2">Elles reviennent à leur version d'usine : leurs mises à jour sont supprimées. Si tu en réactives une, le Play Store la remettra à jour. Utile surtout quand le stockage est presque plein.</span></span></label>
+        </div>
+      </section>` : ''}
+
       ${level >= 3 ? launcherSection(p.launcher) : ''}
       <div class="note">${ic('undo')}<div>Rien n'est supprimé : chaque appli se réactive depuis l'historique de la TV, en un clic.</div></div>`;
 
@@ -1070,6 +1090,8 @@ async function viewOptimize(rid, id, levelStr) {
     }));
     $('#disable-stock')?.addEventListener('change', (e) => { st.disableStock = e.target.checked; updateBar(); });
     $('#dns')?.addEventListener('change', (e) => { st.dns = e.target.checked; });
+    $('#reclaim')?.addEventListener('change', (e) => { st.reclaim = e.target.checked; });
+    $$('[data-bg]').forEach((c) => c.addEventListener('change', () => { if (c.checked) st.bg.add(c.dataset.bg); else st.bg.delete(c.dataset.bg); }));
     $$('[data-install]').forEach((b) => b.addEventListener('click', async (e) => {
       e.preventDefault();
       busy(b, true, b.dataset.apk ? 'Installation…' : 'Ouverture…');
@@ -1195,6 +1217,8 @@ async function viewOptimize(rid, id, levelStr) {
   const updateBar = () => {
     const bar = document.querySelector('.actionbar');
     if (!bar || !st.plan) return;
+    const rmb = $('#reclaim-mb');
+    if (rmb) rmb.textContent = fmtMb(reclaimMb());
     const sel = selected();
     const mem = Math.round(sel.reduce((s, a) => s + (a.memMb || 0), 0));
     const losses = sel.filter(lossy).length;
@@ -1229,7 +1253,7 @@ async function viewOptimize(rid, id, levelStr) {
     try {
       const r = await api(`/api/devices/${encodeURIComponent(id)}/apply`, {
         method: 'POST',
-        body: { level, apps: sel.map((a) => a.pkg), allowWarn: risky.length > 0, dns: st.dns, launcher: st.launcher ? { pkg: st.launcher, disableStock: st.disableStock } : null },
+        body: { level, apps: sel.map((a) => a.pkg), allowWarn: risky.length > 0, dns: st.dns, background: [...st.bg], reclaim: st.reclaim, launcher: st.launcher ? { pkg: st.launcher, disableStock: st.disableStock } : null },
       });
       drawResult(r.snapshot, r.audit);
     } catch (e) {
