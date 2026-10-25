@@ -525,6 +525,105 @@
       "category": "Fabricant",
       "why": "Lecteur photos, vidéos et musique pour clé USB et partage réseau (DLNA).",
       "loss": "Plus de lecture depuis une clé USB sans appli comme Kodi ou VLC."
+    },
+    {
+      "pkg": "com.android.cts.priv.ctsshim",
+      "name": "Module de test CTS (privilégié)",
+      "level": 2,
+      "risk": "safe",
+      "category": "Système inutilisé",
+      "why": "Faux paquet utilisé seulement par les tests de certification Android.",
+      "loss": "Aucune."
+    },
+    {
+      "pkg": "com.android.cts.ctsshim",
+      "name": "Module de test CTS",
+      "level": 2,
+      "risk": "safe",
+      "category": "Système inutilisé",
+      "why": "Faux paquet utilisé seulement par les tests de certification Android.",
+      "loss": "Aucune."
+    },
+    {
+      "pkg": "com.android.dynsystem",
+      "name": "Installation de système test",
+      "level": 2,
+      "risk": "safe",
+      "category": "Système inutilisé",
+      "why": "Sert aux développeurs pour essayer une autre version d'Android.",
+      "loss": "Aucune."
+    },
+    {
+      "pkg": "com.android.htmlviewer",
+      "name": "Lecteur HTML",
+      "level": 2,
+      "risk": "info",
+      "category": "Système inutilisé",
+      "why": "Affiche seulement les licences open source dans les Paramètres.",
+      "loss": "La page des licences."
+    },
+    {
+      "pkg": "com.android.companiondevicemanager",
+      "name": "Appareils associés",
+      "level": 2,
+      "risk": "info",
+      "category": "Système inutilisé",
+      "why": "Fenêtre qui associe un téléphone ou un accessoire à une appli.",
+      "loss": "Certaines applis compagnon ne pourront plus s'associer."
+    },
+    {
+      "pkg": "com.android.backupconfirm",
+      "name": "Confirmation de sauvegarde",
+      "level": 2,
+      "risk": "safe",
+      "category": "Système inutilisé",
+      "why": "Fenêtre de sauvegarde par câble ; la sauvegarde est coupée sur cette TV.",
+      "loss": "Aucune."
+    },
+    {
+      "pkg": "com.android.statementservice",
+      "name": "Vérification des liens",
+      "level": 2,
+      "risk": "info",
+      "category": "Système inutilisé",
+      "why": "Vérifie quelle appli ouvre quels liens web.",
+      "loss": "Des liens peuvent demander l'appli à utiliser."
+    },
+    {
+      "pkg": "com.android.settings.intelligence",
+      "name": "Suggestions des paramètres",
+      "level": 2,
+      "risk": "info",
+      "category": "Système inutilisé",
+      "why": "Suggestions et recherche de réglages pour téléphones ; aucun service actif sur la TV.",
+      "loss": "Aucune."
+    },
+    {
+      "pkg": "com.android.sharedstoragebackup",
+      "name": "Sauvegarde du stockage partagé",
+      "level": 2,
+      "risk": "safe",
+      "category": "Système inutilisé",
+      "why": "Sauvegarde par câble ; la sauvegarde est coupée sur cette TV.",
+      "loss": "Aucune."
+    },
+    {
+      "pkg": "com.android.localtransport",
+      "name": "Sauvegarde locale",
+      "level": 2,
+      "risk": "safe",
+      "category": "Système inutilisé",
+      "why": "Seul moyen de sauvegarde ici, et la sauvegarde est coupée.",
+      "loss": "Aucune."
+    },
+    {
+      "pkg": "com.android.soundpicker",
+      "name": "Choix de sonnerie",
+      "level": 2,
+      "risk": "info",
+      "category": "Système inutilisé",
+      "why": "Choisit une sonnerie ; inutile sur TV.",
+      "loss": "Aucune."
     }
   ],
   "protected": [
@@ -580,7 +679,40 @@
     "com.realtek.tv.overlay.framework",
     "com.netflix.tokenmanager",
     "com.android.vpndialogs",
-    "com.android.inputdevices"
+    "com.android.inputdevices",
+    "com.google.android.ext.shared",
+    "com.android.providers.media",
+    "com.android.providers.downloads",
+    "com.android.providers.tv",
+    "com.android.networkstack.inprocess",
+    "com.android.tv.settings.gms.resoverlay",
+    "com.google.android.overlay.modules.permissioncontroller",
+    "com.google.android.overlay.googlewebview",
+    "com.android.tv.overlay.settingsprovider",
+    "com.android.pacprocessor",
+    "com.android.connectivity.resources",
+    "com.realtek.wifi.resources.overlay",
+    "com.android.providers.settings",
+    "com.google.android.overlay.modules.ext.services",
+    "com.android.tv.overlay.lowram",
+    "com.android.tv.overlay.wifi.resources",
+    "com.google.android.modulemetadata",
+    "com.android.proxyhandler",
+    "com.google.android.overlay.modules.permissioncontroller.forframework",
+    "com.android.tethering.overlay",
+    "com.android.tv.settings.google.resoverlay",
+    "com.android.tv.overlay.networkstack.inprocess",
+    "com.android.networkstack.tethering.inprocess",
+    "com.android.networkstack.permissionconfig",
+    "com.google.android.overlay.gtvssettingsprovider",
+    "com.google.android.overlay.modules.modulemetadata.forframework",
+    "com.android.tv.settings.vendor.resoverlay",
+    "com.google.android.overlay.gtvsconfigx",
+    "com.android.providers.userdictionary",
+    "com.android.providers.media.module",
+    "android.auto_generated_rro_product__",
+    "com.android.captiveportallogin",
+    "com.android.tethering.overlay.gsi"
   ],
   "protectedPrefixes": [
     "com.android.providers.settings",
