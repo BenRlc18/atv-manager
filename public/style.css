@@ -595,3 +595,15 @@ main.wide { max-width: 1680px; }
 /* Une étape ne doit jamais élargir la page (bouton long sur téléphone) */
 .steps > li { grid-template-columns: 28px minmax(0, 1fr); }
 @media (max-width: 760px) { .fts-row > .btn { white-space: normal; height: auto; min-height: 36px; padding-top: 6px; padding-bottom: 6px; text-align: center; line-height: 1.3; } }
+
+/* Proches : actions sur un compte, mot de passe provisoire */
+.user-actions { gap: 6px; flex-wrap: wrap; justify-content: flex-end; align-items: center; }
+@media (max-width: 760px) { .user-actions { justify-content: flex-start; } }
+.cred-box { border: 1px solid var(--line); border-radius: 8px; background: var(--sunken); }
+.cred-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; padding: 10px 14px; }
+.cred-row + .cred-row { border-top: 1px solid var(--line); }
+.cred-val { font-size: 17px; color: var(--text); overflow-wrap: anywhere; user-select: all; font-variant-numeric: tabular-nums; }
+.cred-text { width: 100%; resize: none; height: auto; padding: 10px 12px; font-size: 13px; line-height: 1.5; }
+.ntf-results { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; color: var(--text-2); }
+.ntf-results li { display: flex; align-items: baseline; gap: 8px; }
+.ntf-results .dot { transform: translateY(-1px); }

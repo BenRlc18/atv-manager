@@ -26,7 +26,7 @@ const publicSettings = (s) => ({
     tag: (s.tailscale && s.tailscale.tag) || 'tag:tvbox',
   },
   ai: { enabled: false },
-  notify: NT.publicConfig(), // { hasGotify, gotifyUrl } : le jeton n'est jamais renvoyé
+  notify: NT.publicConfig(), // { hasGotify, gotifyUrl, hasWebhook } : ni le jeton ni l'adresse du webhook
 });
 
 // Lien de téléchargement de l'appli ATVM Connect (redirection depuis /connect.apk, facile à taper dans Downloader)
@@ -410,17 +410,20 @@ route('POST', '/api/settings', 'admin', async (ctx) => {
     s.tailscale = { ...s.tailscale, tag };
   }
   if (body.tailscale) TS.invalidatePolicy(); // accès ou étiquette changés : la politique sera relue
-  // Notification Gotify (optionnelle) : chaîne vide = suppression ; le jeton n'est jamais renvoyé
+  // Notifications Gotify et webhook (optionnelles) : chaîne vide = suppression ; jeton et adresse du webhook jamais renvoyés
   if (body.notify && typeof body.notify === 'object') {
     const n = { ...(s.notify || {}) };
     if (typeof body.notify.gotifyUrl === 'string') n.gotifyUrl = NT.validUrl(body.notify.gotifyUrl);
     if (typeof body.notify.gotifyToken === 'string') n.gotifyToken = NT.validToken(body.notify.gotifyToken);
+    if (typeof body.notify.webhookUrl === 'string') n.webhookUrl = NT.validWebhookUrl(body.notify.webhookUrl);
     if (!n.gotifyUrl) delete n.gotifyUrl;
+    if (!n.webhookUrl) delete n.webhookUrl;
     if (!n.gotifyToken) delete n.gotifyToken;
     s.notify = n;
   }
   s.ai = { enabled: false }; // l'agent IA n'est pas encore disponible
   store.saveSettings(s);
+  NT.rememberSite(ctx.req); // adresse publique jointe aux notifications
   let tailscale = null;
   if (s.tailscale.enabled) {
     const t = await D.tailscalePeers();
@@ -445,7 +448,8 @@ route('POST', '/api/tailscale/devicecode/:id/reject', 'admin', async (ctx, p) =>
 route('POST', '/api/tailscale/devicecode/:id/prompt', 'user', async (ctx, p) => TSC.prompt(decodeURIComponent(p.id), ctx.user));
 
 // Notification de test (Gotify)
-route('POST', '/api/notify/test', 'admin', async () => NT.send('OptiTV : test', 'Les notifications de ton serveur OptiTV fonctionnent.', 5));
+// Test de tous les canaux : { gotify, webhook } = 'ok' | 'absent' | 'erreur'
+route('POST', '/api/notify/test', 'admin', async (ctx) => { NT.rememberSite(ctx.req); return NT.testAll(); });
 
 route('GET', '/api/admin/users', 'admin', async () => ({ users: auth.listUsers(), invites: auth.listInvites() }));
 route('POST', '/api/admin/invites', 'admin', async (ctx) => ({ invite: auth.createInvite(ctx.user, ctx.body.note) }));
@@ -463,6 +467,11 @@ route('POST', '/api/admin/users/:id/delete', 'admin', async (ctx, p) => {
   return { ok: true };
 });
 route('POST', '/api/admin/users/:id/reset-2fa', 'admin', async (ctx, p) => { auth.twoFactorReset(decodeURIComponent(p.id)); return { ok: true }; });
+// Mot de passe oublié : l'administrateur génère un mot de passe provisoire (à changer à la connexion)
+const resetPassword = async (ctx, p) => auth.resetPassword(decodeURIComponent(p.id), ctx.user);
+route('POST', '/api/users/:id/reset-password', 'admin', resetPassword);
+route('POST', '/api/admin/users/:id/reset-password', 'admin', resetPassword);
+route('POST', '/api/users/:id/reset-2fa', 'admin', async (ctx, p) => { auth.twoFactorReset(decodeURIComponent(p.id)); return { ok: true }; });
 
 // ---------- Serveur
 const server = http.createServer(async (req, res) => {

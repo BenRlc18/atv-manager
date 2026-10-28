@@ -26,6 +26,7 @@ const ICONS = {
   logout: '<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 17l-5-5 5-5M5 12h11"/>',
   users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 20a6.5 6.5 0 0 0-2.5-5.1"/>',
   copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>',
+  key: '<circle cx="8" cy="15" r="4"/><path d="m10.8 12.2 8.7-8.7M16 7l2.5 2.5M14 9l2 2"/>',
   home: '<path d="M4 11 12 4l8 7"/><path d="M6 9.5V20h12V9.5"/><path d="M10 20v-5h4v5"/>',
   remote: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/><path d="m10 8.5 4 1.5-4 1.5z"/>',
   // Accessoires
@@ -205,10 +206,25 @@ const TXT = {
     ntfSaved: 'Notifications enregistrées.',
     ntfTest: 'Envoyer un test',
     ntfTestBusy: 'Envoi…',
-    ntfTestOk: 'Notification de test envoyée : regarde ton téléphone.',
+    ntfTestOk: 'Test envoyé : vérifie que le message est bien arrivé.',
     ntfDel: 'Désactiver',
     ntfDeleted: 'Notifications désactivées.',
     ntfNeedUrl: "Indique l'adresse et le jeton.",
+    // Notifications : webhook (Home Assistant)
+    whkLbl: 'Webhook (Home Assistant)',
+    whkDesc: "Envoie les mêmes alertes à Home Assistant (ou tout outil qui reçoit un webhook). Tu gagnes : une notification sur l'appli Home Assistant, une lampe qui clignote… Tu perds : rien, mais il faut créer l'automatisation. L'adresse contient un identifiant secret : elle reste sur ce serveur et n'est jamais réaffichée.",
+    whkHelp: "Dans Home Assistant › Automatisations, crée une automatisation avec le déclencheur <b>Webhook</b> (méthode POST, accès local). L'adresse ressemble à <span class=\"mono\">http://IP-de-HA:8123/api/webhook/xxxx</span>. Le corps reçu est <span class=\"mono\">{title, message, url}</span>.",
+    whkUrl: 'Adresse du webhook',
+    whkKeep: 'Adresse enregistrée, laisse vide pour la garder',
+    whkNeed: "Indique l'adresse du webhook.",
+    whkSaved: 'Webhook enregistré.',
+    whkDel: 'Retirer',
+    whkDeleted: 'Webhook retiré.',
+    // Notifications : test de tous les canaux
+    ntfTestLbl: 'Tester les notifications',
+    ntfTestDesc: 'Envoie un message de test sur chaque canal configuré.',
+    ntfRes: { ok: 'envoyé', absent: 'non configuré', erreur: "échec : vérifie l'adresse et que le serveur est joignable" },
+    ntfResDot: { ok: 'ok', absent: '', erreur: 'bad' },
     ftsSt: {
       'waiting-device': 'En attente de la TV sur Tailscale…',
       'waiting-auth': 'Fenêtre d’autorisation affichée sur la TV : coche « Toujours autoriser » puis OK.',
@@ -238,6 +254,32 @@ const TXT = {
     tsoCheckBusy: 'Vérification…',
     tsoCheckOk: "Règles d'accès correctes : les TV ajoutées par Tailscale ne voient que ce serveur.",
     tsoCheckKo: 'À corriger dans la console Tailscale :',
+    // Proches : réinitialisation du mot de passe par l'administrateur
+    rpwBtn: 'Réinitialiser le mot de passe',
+    rpwConfirmTitle: (n) => `Réinitialiser le mot de passe de ${n} ?`,
+    rpwConfirm: (n) => `<p><b>${n}</b> sera déconnecté partout ; un mot de passe provisoire va s'afficher une seule fois.</p><p class="sm t3">Tu gagnes : il retrouve l'accès à son compte. Tu perds : son ancien mot de passe ne marche plus.</p>`,
+    rpwConfirmBtn: 'Réinitialiser',
+    rpwTitle: 'Mot de passe provisoire',
+    rpwLead: (n) => `Envoie ces informations à ${n}. Ce mot de passe ne sera plus jamais affiché : copie-le maintenant.`,
+    rpwUser: 'Identifiant',
+    rpwPwd: 'Mot de passe provisoire',
+    rpwMust: 'À sa prochaine connexion, il devra choisir son propre mot de passe.',
+    rpwCopy: 'Copier identifiant et mot de passe',
+    rpwCopied: 'Identifiant et mot de passe copiés : envoie-les à ton proche.',
+    rpwMsg: (url, u, p) => `Ton accès à ATV Manager a été réinitialisé.\nAdresse : ${url}\nIdentifiant : ${u}\nMot de passe provisoire : ${p}\nTu devras choisir ton propre mot de passe à la connexion.`,
+    rpwTfaNote: 'Son compte a aussi la double authentification. S’il a perdu son téléphone, réinitialise-la aussi : il se connectera avec le seul mot de passe et pourra la réactiver.',
+    rpwTfaBtn: 'Réinitialiser la double authentification',
+    rpwTfaDone: 'Double authentification réinitialisée.',
+    rpwClose: 'J’ai noté, fermer',
+    // Changement de mot de passe obligatoire
+    mcpTitle: 'Choisis ton mot de passe',
+    mcpLead: 'Ton mot de passe a été réinitialisé par l’administrateur. Avant de continuer, remplace le mot de passe provisoire par un mot de passe à toi, que tu es seul à connaître.',
+    mcpCurrent: 'Mot de passe provisoire',
+    mcpNext: 'Nouveau mot de passe',
+    mcpConfirm: 'Confirme le nouveau mot de passe',
+    mcpSubmit: 'Enregistrer et continuer',
+    mcpDone: 'Mot de passe enregistré. Bienvenue !',
+    mcpLater: 'Se déconnecter',
   },
 };
 const T = TXT.fr;
@@ -342,6 +384,7 @@ function promptBox({ title, label, value = '', placeholder = '' }) {
 async function loadState() {
   const st = await api('/api/state');
   Object.assign(S, { features: st.features || {}, pendingAgents: st.pendingAgents || [], user: st.user, devices: st.devices, settings: st.settings || S.settings, levels: st.levels, version: st.version, subnets: st.subnets, tsCodesWaiting: Number(st.tailscaleCodesWaiting) || 0, loaded: true });
+  if (S.user && S.user.mustChangePassword) { showMustChange(); throw Object.assign(new Error(T.mcpTitle), { mustChange: true }); }
   drawChrome();
 }
 
@@ -412,6 +455,7 @@ async function render() {
     S.user = st.user;
   }
   if (invite) { location.hash = '#/'; return; }
+  if (S.user.mustChangePassword) { showMustChange(); return; }
   document.body.classList.remove('auth-mode');
 
   const [re, view, tab] = routes.find(([r]) => r.test(hash)) || routes[0];
@@ -425,7 +469,7 @@ async function render() {
     if (!S.loaded) await loadState();
     await view(rid, ...args);
   } catch (e) {
-    if (rid !== renderId) return;
+    if (rid !== renderId || e.mustChange) return;
     $app.innerHTML = `<div class="note warn">${ic('alert')}<div class="stack"><b>${esc(e.message)}</b><div><a class="btn sm" href="#/">Retour aux appareils</a></div></div></div>`;
   }
 }
@@ -501,6 +545,59 @@ function showAuth(mode, invite = '', message = '') {
       const r = await api(`/api/auth/${mode}`, { method: 'POST', body: f });
       if (r.twoFactor) return showTwoFactor(r.ticket);
       authDone(r.user);
+    } catch (e) {
+      busy(btn, false);
+      showErr(e.message);
+    }
+  });
+}
+
+// Écran bloquant : mot de passe provisoire à remplacer (posé par l'administrateur)
+function showMustChange() {
+  renderId++;
+  document.body.classList.add('auth-mode');
+  document.querySelector('.actionbar')?.remove();
+  if ($modal.open) $modal.close();
+  const pwd = (name, label, auto) => `<label class="field">${esc(label)}<input class="input lg" type="password" name="${name}" autocomplete="${auto}" minlength="8" required></label>`;
+  $app.innerHTML = `
+    <div class="auth">
+      <div class="auth-brand"><img src="/icon.svg" alt="" width="40" height="40"><span>ATV Manager</span></div>
+      <div class="panel auth-card">
+        <div class="auth-head"><h1>${esc(T.mcpTitle)}</h1><p class="t2 sm">${esc(T.mcpLead)}</p></div>
+        <p class="sm t2">Identifiant : <span class="mono">${esc(S.user.username)}</span></p>
+        <form id="mcp-form" class="auth-form" novalidate>
+          <input type="text" name="username" value="${esc(S.user.username)}" autocomplete="username" hidden>
+          ${pwd('current', T.mcpCurrent, 'current-password')}
+          ${pwd('next', T.mcpNext, 'new-password')}
+          ${PWD_RULES_HTML}
+          ${pwd('confirm', T.mcpConfirm, 'new-password')}
+          <p class="form-error" id="mcp-error" role="alert" hidden></p>
+          <button class="btn primary auth-submit" type="submit">${esc(T.mcpSubmit)}</button>
+        </form>
+      </div>
+      <p class="sm t2 auth-switch"><a href="#" data-logout>${esc(T.mcpLater)}</a></p>
+    </div>`;
+  const form = $('#mcp-form');
+  form.querySelector('input[name=current]').focus();
+  watchPassword(form.querySelector('input[name=next]'), form.querySelector('.pwd-rules'));
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const f = Object.fromEntries(new FormData(form));
+    const errBox = $('#mcp-error');
+    const showErr = (m) => { errBox.textContent = m; errBox.hidden = false; };
+    errBox.hidden = true;
+    if (!f.current) return showErr('Entre le mot de passe provisoire reçu.');
+    if (!pwdValid(f.next)) return showErr('Le nouveau mot de passe ne respecte pas toutes les règles indiquées.');
+    if (f.next !== f.confirm) return showErr('Les deux mots de passe ne correspondent pas.');
+    if (f.next === f.current) return showErr('Choisis un mot de passe différent du provisoire.');
+    const btn = form.querySelector('[type=submit]');
+    busy(btn, true, 'Enregistrement…');
+    try {
+      await api('/api/account/password', { method: 'POST', body: { current: f.current, next: f.next } });
+      S.user.mustChangePassword = false;
+      S.loaded = false;
+      toast(T.mcpDone);
+      if (location.hash === '#/' || location.hash === '') render(); else location.hash = '#/';
     } catch (e) {
       busy(btn, false);
       showErr(e.message);
@@ -2544,7 +2641,7 @@ async function drawPeople(rid) {
       ${data.users.map((u) => `
         <div class="invite-row">
           <div style="min-width:0"><b>${esc(u.name)}</b> <span class="mono t3">${esc(u.username)}</span>${u.twoFactor ? ' <span class="tag">2FA</span>' : ''}<div class="sm t3">${u.role === 'admin' ? 'Administrateur' : 'Invité'} · créé le ${esc(fmtDate(u.createdAt))}</div></div>
-          ${u.id === S.user.id ? '<span class="sm t3">C’est toi</span>' : `<div class="form-row" style="gap:6px;flex-wrap:nowrap">${u.twoFactor ? `<button class="btn sm quiet" data-reset2fa="${esc(u.id)}" data-name="${esc(u.name)}">Réinitialiser la 2FA</button>` : ''}<button class="btn sm danger" data-deluser="${esc(u.id)}" data-name="${esc(u.name)}">Supprimer</button></div>`}
+          ${u.id === S.user.id ? '<span class="sm t3">C’est toi</span>' : `<div class="form-row user-actions"><button class="btn sm" data-resetpwd="${esc(u.id)}" data-name="${esc(u.name)}">${ic('key')}${esc(T.rpwBtn)}</button>${u.twoFactor ? `<button class="btn sm quiet" data-reset2fa="${esc(u.id)}" data-name="${esc(u.name)}">Réinitialiser la 2FA</button>` : ''}<button class="btn sm danger" data-deluser="${esc(u.id)}" data-name="${esc(u.name)}">Supprimer</button></div>`}
         </div>`).join('')}
     </div>`;
 
@@ -2562,6 +2659,7 @@ async function drawPeople(rid) {
   $$('[data-revoke]', box).forEach((b) => b.addEventListener('click', async () => {
     try { await api(`/api/admin/invites/${encodeURIComponent(b.dataset.revoke)}/revoke`, { method: 'POST' }); drawPeople(renderId); } catch (e) { toast(e.message, 'error'); }
   }));
+  $$('[data-resetpwd]', box).forEach((b) => b.addEventListener('click', () => resetUserPassword(b.dataset.resetpwd, b.dataset.name)));
   $$('[data-reset2fa]', box).forEach((b) => b.addEventListener('click', async () => {
     if (!(await confirmBox({ title: `Réinitialiser la 2FA de ${b.dataset.name} ?`, html: '<p>À utiliser s’il a perdu son téléphone et ses codes de secours. Il se connectera avec son seul mot de passe et pourra réactiver la 2FA.</p>', confirm: 'Réinitialiser' }))) return;
     try { await api(`/api/admin/users/${encodeURIComponent(b.dataset.reset2fa)}/reset-2fa`, { method: 'POST' }); toast('Double authentification réinitialisée.'); drawPeople(renderId); } catch (e) { toast(e.message, 'error'); }
@@ -2570,6 +2668,61 @@ async function drawPeople(rid) {
     if (!(await confirmBox({ title: `Supprimer le compte de ${b.dataset.name} ?`, html: '<p>Il ne pourra plus se connecter et perdra l’accès aux TV partagées. Les TV ne sont pas modifiées.</p>', confirm: 'Supprimer', danger: true }))) return;
     try { await api(`/api/admin/users/${encodeURIComponent(b.dataset.deluser)}/delete`, { method: 'POST' }); toast('Compte supprimé.'); drawPeople(renderId); } catch (e) { toast(e.message, 'error'); }
   }));
+}
+
+// Action administrateur sur un compte : route /api/admin/users/…, sinon /api/users/… (selon la version du serveur)
+async function userAction(id, action) {
+  const tail = `${encodeURIComponent(id)}/${action}`;
+  try {
+    return await api(`/api/admin/users/${tail}`, { method: 'POST' });
+  } catch (e) {
+    if (e.status === 404 && e.data && e.data.error === 'Route inconnue.') return api(`/api/users/${tail}`, { method: 'POST' });
+    throw e;
+  }
+}
+
+async function resetUserPassword(id, name) {
+  if (!(await confirmBox({ title: T.rpwConfirmTitle(name), html: T.rpwConfirm(esc(name)), confirm: T.rpwConfirmBtn, danger: true }))) return;
+  let r;
+  try { r = await userAction(id, 'reset-password'); } catch (e) { toast(e.message, 'error'); return; }
+  const msg = T.rpwMsg(location.origin, r.username, r.password);
+  $modal.innerHTML = `
+    <form method="dialog" class="dlg">
+      <h2>${esc(T.rpwTitle)}</h2>
+      <p>${esc(T.rpwLead(name))}</p>
+      <div class="cred-box">
+        <div class="cred-row"><span class="sm t3">${esc(T.rpwUser)}</span><span class="mono cred-val">${esc(r.username)}</span></div>
+        <div class="cred-row"><span class="sm t3">${esc(T.rpwPwd)}</span><span class="mono cred-val">${esc(r.password)}</span></div>
+      </div>
+      <p class="sm t2">${esc(T.rpwMust)}</p>
+      <div><button class="btn primary" type="button" id="rpw-copy">${ic('copy')}${esc(T.rpwCopy)}</button></div>
+      ${r.twoFactor ? `<div class="note" id="rpw-tfa">${ic('alert')}<div class="stack"><span class="sm">${esc(T.rpwTfaNote)}</span><div><button class="btn sm" type="button" id="rpw-tfa-btn">${esc(T.rpwTfaBtn)}</button></div></div></div>` : ''}
+      <div class="dlg-actions"><button class="btn" value="ok">${esc(T.rpwClose)}</button></div>
+    </form>`;
+  $modal.onclose = () => drawPeople(renderId);
+  $modal.returnValue = '';
+  $modal.showModal();
+  $modal.querySelector('#rpw-copy').addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(msg); toast(T.rpwCopied); } catch {
+      // Presse-papiers indisponible (HTTP) : on sélectionne le texte à copier à la main
+      const ta = document.createElement('textarea');
+      ta.className = 'input mono cred-text'; ta.readOnly = true; ta.rows = 5; ta.value = msg;
+      $modal.querySelector('#rpw-copy').replaceWith(ta);
+      ta.focus(); ta.select();
+    }
+  });
+  $modal.querySelector('#rpw-tfa-btn')?.addEventListener('click', async (ev) => {
+    const btn = ev.currentTarget;
+    busy(btn, true, 'Réinitialisation…');
+    try {
+      await userAction(id, 'reset-2fa');
+      $modal.querySelector('#rpw-tfa').innerHTML = `${ic('check')}<div class="sm">${esc(T.rpwTfaDone)}</div>`;
+    } catch (e) {
+      if (e.status === 404) { $modal.querySelector('#rpw-tfa').remove(); return; }
+      busy(btn, false);
+      toast(e.message, 'error');
+    }
+  });
 }
 
 async function drawAppsAdmin(rid) {
@@ -2625,7 +2778,7 @@ async function copyText(text, okMsg) {
   }
 }
 
-// Réglages : notifications Gotify (le jeton n'est jamais renvoyé par le serveur)
+// Réglages : notifications Gotify et webhook (ni le jeton ni l'adresse du webhook ne sont renvoyés par le serveur)
 function notifySection() {
   const n = (S.settings && S.settings.notify) || {};
   return `<section class="section" id="notify">
@@ -2641,9 +2794,25 @@ function notifySection() {
               <label class="field">${T.ntfUrl}<input class="input lg mono" type="url" name="gotifyUrl" autocomplete="off" spellcheck="false" value="${esc(n.gotifyUrl || '')}" placeholder="https://gotify.exemple.fr"></label>
               <label class="field">${T.ntfToken}<input class="input lg mono" type="password" name="gotifyToken" autocomplete="new-password" spellcheck="false" placeholder="${n.hasGotify ? esc(T.ntfKeep) : 'A1b2C3d4E5f6G7h'}"></label>
             </div>
-            <div class="form-row" style="gap:8px"><button class="btn sm primary" type="submit">${T.ntfSave}</button>${n.hasGotify ? `<button class="btn sm" type="button" id="ntf-test">${ic('bell')}${T.ntfTest}</button><button class="btn sm quiet" type="button" id="ntf-del">${T.ntfDel}</button>` : ''}</div>
+            <div class="form-row" style="gap:8px"><button class="btn sm primary" type="submit">${T.ntfSave}</button>${n.hasGotify ? `<button class="btn sm quiet" type="button" id="ntf-del">${T.ntfDel}</button>` : ''}</div>
           </div>
         </form>
+        <form id="whk-form" class="setting">
+          <div>
+            <div class="lbl">${ic('link')}${T.whkLbl} ${n.hasWebhook ? `<span class="tag"><span class="dot ok"></span>${T.ntfOn}</span>` : ''}</div>
+            <p class="desc">${T.whkDesc}</p>
+          </div>
+          <div class="more">
+            <label class="field">${T.whkUrl}<input class="input lg mono" type="password" name="webhookUrl" autocomplete="off" spellcheck="false" placeholder="${n.hasWebhook ? esc(T.whkKeep) : 'http://192.168.1.10:8123/api/webhook/…'}"></label>
+            <p class="sm t3">${T.whkHelp}</p>
+            <div class="form-row" style="gap:8px"><button class="btn sm primary" type="submit">${T.ntfSave}</button>${n.hasWebhook ? `<button class="btn sm quiet" type="button" id="whk-del">${T.whkDel}</button>` : ''}</div>
+          </div>
+        </form>
+        ${n.hasGotify || n.hasWebhook ? `<div class="setting">
+          <div><div class="lbl">${ic('bell')}${T.ntfTestLbl}</div><p class="desc">${T.ntfTestDesc}</p>
+            <ul class="ntf-results" id="ntf-results" aria-live="polite" hidden></ul></div>
+          <button class="btn sm" type="button" id="ntf-test">${T.ntfTest}</button>
+        </div>` : ''}
       </div>
     </section>`;
 }
@@ -2672,8 +2841,40 @@ function bindNotify() {
   $('#ntf-test')?.addEventListener('click', async (ev) => {
     const btn = ev.currentTarget;
     busy(btn, true, T.ntfTestBusy);
-    try { await api('/api/notify/test', { method: 'POST' }); toast(T.ntfTestOk); } catch (e) { toast(e.message, 'error'); }
+    const out = $('#ntf-results');
+    try {
+      const r = await api('/api/notify/test', { method: 'POST' });
+      const rows = [['gotify', T.ntfLbl], ['webhook', T.whkLbl]].map(([k, label]) => {
+        const v = Object.prototype.hasOwnProperty.call(T.ntfRes, r[k]) ? r[k] : 'erreur';
+        return `<li><span class="dot ${T.ntfResDot[v]}"></span><span><b>${esc(label)}</b> : ${esc(T.ntfRes[v])}</span></li>`;
+      });
+      out.innerHTML = rows.join('');
+      out.hidden = false;
+      if (r.gotify === 'ok' || r.webhook === 'ok') toast(T.ntfTestOk);
+    } catch (e) { toast(e.message, 'error'); }
     busy(btn, false);
+  });
+  const whk = $('#whk-form');
+  whk?.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const url = String(new FormData(whk).get('webhookUrl') || '').trim();
+    if (!url) { toast(T.whkNeed, 'error'); return; }
+    const btn = whk.querySelector('[type=submit]');
+    busy(btn, true, T.tsoCheckBusy);
+    try {
+      const r = await api('/api/settings', { method: 'POST', body: { notify: { webhookUrl: url } } });
+      if (r.settings) S.settings = r.settings;
+      toast(T.whkSaved);
+      viewSettings(renderId);
+    } catch (e) { toast(e.message, 'error'); busy(btn, false); }
+  });
+  $('#whk-del')?.addEventListener('click', async () => {
+    try {
+      const r = await api('/api/settings', { method: 'POST', body: { notify: { webhookUrl: '' } } });
+      if (r.settings) S.settings = r.settings;
+      toast(T.whkDeleted);
+      viewSettings(renderId);
+    } catch (e) { toast(e.message, 'error'); }
   });
   $('#ntf-del')?.addEventListener('click', async () => {
     try {

@@ -46,6 +46,7 @@ function validate({ username, name, password }) {
 const publicUser = (u) => u && {
   id: u.id, username: u.username, name: u.name, role: u.role, createdAt: u.createdAt,
   twoFactor: !!u.totp, recoveryLeft: u.totp ? u.totp.recovery.length : 0,
+  mustChangePassword: !!u.mustChangePassword,
 };
 
 function createUser(input, role) {
@@ -185,9 +186,42 @@ function deleteUser(id, byUser) {
 function changePassword(user, current, next) {
   if (!checkPassword(String(current || ''), user.pass)) throw err('Mot de passe actuel incorrect.', 403);
   const { password } = validate({ username: user.username, password: next });
+  if (user.mustChangePassword && password === String(current)) throw err('Choisis un mot de passe différent du mot de passe provisoire.');
   const all = users();
   all[user.id].pass = hashPassword(password);
+  delete all[user.id].mustChangePassword;
   saveUsers(all);
+}
+
+// Mot de passe provisoire lisible : 3 mots + 4 chiffres (ex. Lampe-Rivage-Orage-4821), tiré avec crypto.randomInt
+const WORDS = ['Abeille', 'Algue', 'Ancre', 'Arbre', 'Avion', 'Balcon', 'Baleine', 'Bambou', 'Bateau', 'Biscuit',
+  'Bougie', 'Bouleau', 'Cactus', 'Camion', 'Canard', 'Castor', 'Cerise', 'Chalet', 'Citron', 'Colline',
+  'Comete', 'Corail', 'Cygne', 'Dauphin', 'Dune', 'Etoile', 'Falaise', 'Faucon', 'Figue', 'Flocon',
+  'Foret', 'Fraise', 'Galet', 'Girafe', 'Glacier', 'Grenade', 'Hibou', 'Jardin', 'Koala', 'Lagune',
+  'Lampe', 'Lavande', 'Lezard', 'Lune', 'Mangue', 'Marmotte', 'Melon', 'Moulin', 'Nuage', 'Olive',
+  'Orage', 'Orange', 'Panda', 'Papaye', 'Phare', 'Pirate', 'Planete', 'Prairie', 'Radis', 'Renard',
+  'Rivage', 'Riviere', 'Rocher', 'Sapin', 'Soleil', 'Tigre', 'Tomate', 'Tortue', 'Tulipe', 'Vallee',
+  'Voilier', 'Volcan', 'Zebre'];
+function provisionalPassword() {
+  const w = Array.from({ length: 3 }, () => WORDS[crypto.randomInt(WORDS.length)]);
+  return `${w.join('-')}-${String(crypto.randomInt(10000)).padStart(4, '0')}`;
+}
+
+// Réinitialisation par l'administrateur : le mot de passe n'est renvoyé qu'une fois, jamais stocké en clair
+function resetPassword(id, byUser) {
+  const all = users();
+  const u = all[id];
+  if (!u) throw err('Compte introuvable.', 404);
+  if (id === byUser.id) throw err('Pour ton propre compte, utilise « Mon compte ».');
+  const password = provisionalPassword();
+  u.pass = hashPassword(password);
+  u.mustChangePassword = true;
+  saveUsers(all);
+  closeUserSessions(id);
+  // Les connexions en attente du second facteur (obtenues avec l'ancien mot de passe) sont annulées
+  for (const [k, t] of tickets) if (t.userId === id) tickets.delete(k);
+  console.log(`[auth] mot de passe réinitialisé par ${byUser.username} pour ${u.username}`);
+  return { username: u.username, password, twoFactor: !!u.totp };
 }
 
 const listUsers = () => Object.values(users()).map(publicUser).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
@@ -318,6 +352,6 @@ function twoFactorLogin(ticket, code, ip) {
 
 module.exports = {
   needsSetup, setup, register, login, openSession, closeSession, closeUserSessions, cookieToken, currentUser, sessionCookie,
-  createInvite, listInvites, revokeInvite, deleteUser, changePassword, listUsers, publicUser,
+  createInvite, listInvites, revokeInvite, deleteUser, changePassword, resetPassword, listUsers, publicUser,
   twoFactorBegin, twoFactorEnable, twoFactorDisable, twoFactorReset, issueTicket, twoFactorLogin,
 };

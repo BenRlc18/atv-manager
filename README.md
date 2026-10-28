@@ -146,6 +146,8 @@ Sur iPhone et Android, « Ajouter à l'écran d'accueil » l'installe comme une 
 | `TAILSCALE_DOWNLOADER_CODE` | Code Downloader affiché pour installer l'appli Tailscale sur une Fire TV | `4723177` |
 | `GOTIFY_URL` | Serveur Gotify pour prévenir l'administrateur (demandes « code TV ») ; remplacé par le réglage s'il existe | aucun |
 | `GOTIFY_TOKEN` | Jeton d'application Gotify (jamais renvoyé à l'interface) | aucun |
+| `NOTIFY_WEBHOOK_URL` | Webhook prévenu en plus de Gotify (Home Assistant par exemple), reçoit `{title, message, url}` en JSON ; remplacé par le réglage s'il existe, jamais renvoyé à l'interface | aucun |
+| `PUBLIC_URL` | Adresse publique du site, jointe aux notifications (sinon celle vue par l'administrateur dans Réglages) | aucune |
 
 Pour l'option Tailscale en Docker, monte le socket : `-v /var/run/tailscale:/var/run/tailscale:ro`.
 

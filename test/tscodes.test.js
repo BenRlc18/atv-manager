@@ -229,7 +229,7 @@ test('refus par l\'administrateur', async () => {
 test('notification Gotify : envoyée à la demande, jeton jamais dans l\'adresse ni dans les journaux', async () => {
   reset({ notify: { gotifyUrl: 'https://gotify.test/', gotifyToken: GOTIFY_TOKEN } });
   const api = fakeApi();
-  assert.deepStrictEqual(NT.publicConfig(), { hasGotify: true, gotifyUrl: 'https://gotify.test' });
+  assert.deepStrictEqual(NT.publicConfig(), { hasGotify: true, gotifyUrl: 'https://gotify.test', hasWebhook: false });
   assert.ok(!JSON.stringify(NT.publicConfig()).includes(GOTIFY_TOKEN));
   await TSC.create(ALICE, 'ABCDEF1234');
   assert.strictEqual(await TSC._lastNotify(), true);
