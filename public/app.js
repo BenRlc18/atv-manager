@@ -1708,6 +1708,7 @@ async function viewAddRemote(rid) {
   $app.innerHTML = `
     ${crumbs([['Appareils', '#/'], ['Ajouter à distance']])}
     <div class="page-head"><div class="lead"><h1>Ajouter une TV à distance</h1><p class="t2 sm">Pour une TV qui n'est pas sur le même réseau que le serveur, par exemple chez un proche. L'appli <b>ATVM Connect</b> relie la TV à ce site, sans rien configurer sur la box.</p></div></div>
+    <div class="note attn" style="margin-bottom:16px">${ic("info")}<div><b>Fire TV récentes (Fire OS 8) :</b> ATVM Connect ne fonctionne pas, Amazon bloque le débogage depuis la TV elle-même. Pour ces modèles, la Fire TV doit rejoindre ton réseau Tailscale (ou être sur le même réseau que ce serveur).</div></div>
     <div class="panel">
       <ol class="steps">
         <li><div><h3>Installe ATVM Connect</h3>
@@ -1798,7 +1799,7 @@ const GUIDES = {
     dev: ['Paramètres', 'Ma Fire TV', 'À propos', 'nom de ta Fire TV (ex. « Fire TV Stick 4K »)'],
     debug: ['Paramètres', 'Ma Fire TV', 'Options pour les développeurs', 'Débogage ADB'],
     ip: ['Paramètres', 'Ma Fire TV', 'À propos', 'Réseau', 'Adresse IP'],
-    note: "Sur une Fire TV, ATV Manager ne modifie jamais les animations (sinon ses paramètres deviennent inaccessibles). Si la fenêtre « Autoriser le débogage ? » n'apparaît pas, désactive puis réactive « Débogage ADB » et patiente quelques secondes.",
+    note: "Sur une Fire TV, ATV Manager ne modifie jamais les animations (sinon ses paramètres deviennent inaccessibles). Si la fenêtre « Autoriser le débogage ? » n'apparaît pas, désactive puis réactive « Débogage ADB » et patiente quelques secondes. Fire TV récentes (Fire OS 8) : l'appli ATVM Connect ne fonctionne pas, Amazon bloquant le débogage depuis la TV elle-même. Il faut que ce serveur soit sur le même réseau que la Fire TV, ou que la Fire TV rejoigne Tailscale.",
   },
   box: {
     label: 'Boîtier Android',

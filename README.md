@@ -41,6 +41,13 @@ Aucune adresse n'est à taper : c'est le serveur qui a généré le code qui l'a
 
 La TV apparaît dans la liste de la personne qui a généré le code. ATVM Connect exécute uniquement les actions lancées depuis ATV Manager, via l'ADB local de la TV (`127.0.0.1:5555`). On peut la retirer à tout moment depuis la fiche de la TV.
 
+**Fire TV sous Fire OS 8 (Fire TV Stick 4K / 4K Max récents, Fire TV Cube 3e génération…) : ATVM Connect ne fonctionne pas.** Amazon bloque toute connexion ADB qui part de la TV elle-même (`127.0.0.1` comme l'adresse Wi-Fi de la TV) : la fenêtre « Autoriser le débogage ? » ne s'affiche jamais. Vérifié sur un Fire TV Stick 4K Max (Fire OS 8.1.8.5) : la TV répond à une connexion venue d'un autre appareil du réseau, jamais à elle-même. Pour ces modèles, la connexion doit venir **d'une autre machine** :
+
+- **chez toi** : le serveur ATV Manager (NAS, mini-PC…) sur le même réseau que la Fire TV, avec « Rechercher » ou l'ajout par adresse IP ;
+- **chez un proche** : la Fire TV rejoint ton réseau **Tailscale** (appli Tailscale de l'Amazon Appstore), et le serveur s'y connecte comme une TV du réseau local.
+
+Les autres Android TV et Google TV ne sont pas concernées.
+
 **Mise à jour automatique** (ATVM Connect 0.10.0 et plus) : à chaque connexion, puis toutes les 6 heures, le serveur compare la version de l’appli avec la dernière disponible. Si elle est plus ancienne, la TV télécharge `/connect.apk` et s’installe elle-même par son ADB local, sans rien demander, puis redémarre. Version proposée : celle indiquée dans `data/connect.json` (`{"version": "0.10.0"}`) quand une APK est posée dans `data/connect.apk`, sinon la dernière release GitHub. La nouvelle APK doit être signée avec la même clé.
 
 Le code source de l'appli est dans `agent/` (Kotlin). L'APK est compilée par GitHub Actions : un tag `connect-vX.Y.Z` publie une release. Pour signer tes propres versions, ajoute les secrets `ATVM_KEYSTORE_B64` (PKCS12 en base64, alias `atvm`) et `ATVM_KEYSTORE_PASSWORD`.
