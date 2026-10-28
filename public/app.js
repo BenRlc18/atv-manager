@@ -125,7 +125,7 @@ const TXT = {
     ftsCheckLink: "Réglages › Vérifier les règles d'accès",
     fts2Busy429: 'Trop de clés créées (3 par heure) : réessaie un peu plus tard.',
     fts3Title: 'Entre la clé sur la TV',
-    fts3Desc: "Ouvre Tailscale sur la TV, puis le menu <b>⋮</b> en haut à droite › <b>Use an auth key</b> (« Utiliser une clé d'authentification »). Tape la clé, puis <b>Connect</b>.",
+    fts3Desc: "Ouvre Tailscale sur la TV, puis la roue crantée <b>Settings</b> › <b>Accounts</b> › menu <b>⋮</b> en haut à droite › <b>Use an auth key</b> (ne choisis pas « Log in », qui demanderait un QR code). Tape la clé, puis <b>Connect</b>.",
     fts3Tip: "Taper une longue clé à la télécommande est pénible : copie-la sur ton téléphone et sers-toi de l'appli <b>Amazon Fire TV</b> du téléphone comme clavier.",
     fts4Title: 'Autorise ce serveur',
     fts4Desc: "Dès que la TV est sur Tailscale, ce serveur s'y connecte et la fenêtre « Autoriser le débogage ? » s'affiche sur la TV : coche <b>Toujours autoriser</b> puis OK. Le suivi se met à jour tout seul ici.",

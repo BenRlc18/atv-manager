@@ -59,7 +59,7 @@ Aucune règle n'a `tag:tvbox` en source : une TV ne peut donc rien ouvrir sur to
 **3. Chaque TV (Fire TV ou autre)**
 1. Dans la console Tailscale, **Settings → Keys → Generate auth key** : coche **Pre-approved** et **Tags → `tag:tvbox`**. La clé peut servir une seule fois ou plusieurs fois.
 2. Sur la TV, active le mode développeur et le débogage (guide « Connecter une TV » dans l'appli), puis installe **Tailscale** depuis l'Amazon Appstore ou le Play Store.
-3. Dans Tailscale, menu **⋮ → Use an auth key** (ou « Utiliser une clé d'authentification ») : colle la clé. Tu peux aussi te connecter avec ton compte puis appliquer l'étiquette `tag:tvbox` dans la console.
+3. Dans Tailscale sur la TV : roue crantée **Settings → Accounts → menu ⋮ → Use an auth key** (et non « Log in », qui ne propose qu'un QR code) (ou « Utiliser une clé d'authentification ») : colle la clé. Tu peux aussi te connecter avec ton compte puis appliquer l'étiquette `tag:tvbox` dans la console.
 4. Dans la console, sur la nouvelle machine : **Disable key expiry**, pour qu'elle ne se déconnecte pas au bout de 6 mois.
 5. Dans ATV Manager, lance **Rechercher** : la TV apparaît avec la mention « via Tailscale ». Accepte « Autoriser le débogage ? » sur la TV (cochée « Toujours autoriser »).
 
