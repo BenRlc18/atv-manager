@@ -65,6 +65,19 @@ Aucune règle n'a `tag:tvbox` en source : une TV ne peut donc rien ouvrir sur to
 
 Ensuite, la TV reste joignable tant qu'elle est allumée et que Tailscale tourne (l'appli démarre toute seule avec la TV).
 
+**4. Option : clés en libre-service pour tes utilisateurs**
+
+Chaque utilisateur du site peut obtenir lui-même une clé pour sa TV, sans que tu interviennes. Le serveur crée une clé à usage unique (étiquette `tag:tvbox`, valable 1 h, 3 par utilisateur et par heure), repère la TV quand elle rejoint le réseau, désactive l'expiration de sa clé et s'y connecte : il ne reste qu'à accepter « Autoriser le débogage ? » sur la TV. Si deux demandes se chevauchent, rien n'est rattaché automatiquement : ajoute la TV toi-même avec **Rechercher**.
+
+1. Dans la console Tailscale, **Settings → Trust credentials** (anciennement « OAuth clients ») : crée un identifiant avec **uniquement** ces droits :
+   - **Auth Keys : Write**, avec le tag `tag:tvbox` ;
+   - **Devices Core : Write**, avec le tag `tag:tvbox` ;
+   - **Policy File : Read**.
+
+   Rien d'autre.
+2. Dans ATV Manager, **Réglages → Accès à distance par Tailscale** : colle l'identifiant du client et son secret (`tskey-client-…`). Ils restent sur le serveur et ne sont jamais réaffichés. Ils remplacent la clé API si les deux sont présents.
+3. Le libre-service reste **bloqué tant que les règles d'accès n'isolent pas les TV** (étape 2) : `tag:tvbox` doit être dans `tagOwners` et aucune règle (`acls`, `grants`, `ssh`) ne doit avoir `tag:tvbox` ou `*` en source. Une clé préautorisée laisse entrer n'importe quel appareil avec cette étiquette : c'est cette isolation qui le rend inoffensif. Le contrôle est refait toutes les 10 minutes, ou aussitôt en cliquant sur le bouton de contrôle des réglages.
+
 
 ## Gérer une TV à distance avec ATVM Connect
 
@@ -117,6 +130,7 @@ Sur iPhone et Android, « Ajouter à l'écran d'accueil » l'installe comme une 
 | `AGENT_APK_URL` | Lien de l'APK ATVM Connect si aucune APK n'est posée dans `data/connect.apk` | release GitHub publique |
 | `DOWNLOADER_CODE` | Code court Downloader (go.aftvnews.com) affiché pour installer ATVM Connect | aucun |
 | `TAILSCALE_SOCKET` | Socket du démon Tailscale (option Tailscale) | `/var/run/tailscale/tailscaled.sock` |
+| `TAILSCALE_DOWNLOADER_CODE` | Code Downloader affiché pour installer l'appli Tailscale sur une Fire TV | `4723177` |
 
 Pour l'option Tailscale en Docker, monte le socket : `-v /var/run/tailscale:/var/run/tailscale:ro`.
 

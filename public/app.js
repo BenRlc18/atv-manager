@@ -102,6 +102,63 @@ const TXT = {
     stockDesc: "pour libérer le plus de mémoire. Sur certaines TV, un bouton de la télécommande peut ne plus rien faire. Réactivable depuis l'historique ou avec « Remettre le lanceur d'origine ».",
     stockOff: '(impossible sur cette TV)',
     stockRivals: 'Seront aussi désactivés, car ils reprendraient le bouton Accueil :',
+    // Fire TV récente (Fire OS 8) : ajout par Tailscale en libre-service
+    ftsTitle: 'Fire TV récente (Fire OS 8) : passe par Tailscale',
+    ftsIntro: "Sur ces Fire TV, ATVM Connect est bloqué par Amazon. À la place, la Fire TV installe <b>Tailscale</b>, un réseau privé qui la relie à ce serveur, où qu'elle soit. Tu gagnes : la TV se gère à distance comme les autres. Tu perds : l'appli Tailscale reste installée et active sur la TV (un peu de mémoire).",
+    ftsOff: "L'accès Tailscale n'est pas activé sur ce serveur : demande à l'administrateur de l'activer.",
+    ftsOffAdmin: 'Pour la proposer, configure un client OAuth Tailscale dans <a href="#/settings">Réglages</a>.',
+    ftsBefore: 'Avant de commencer : le <b>mode développeur</b> et le <b>Débogage ADB</b> doivent être activés sur la Fire TV.',
+    ftsGuide: 'Voir le guide Fire TV',
+    fts1Title: "Installe l'appli Tailscale",
+    fts1Code: "Dans <b>Downloader</b>, tape ce code. Il installe l'appli <b>officielle</b> Tailscale :",
+    fts1NoCode: "Installe l'appli <b>Tailscale</b> depuis l'Appstore Amazon (recherche « Tailscale »).",
+    fts1After: 'Lance le téléchargement puis <b>Installer</b>.',
+    fts2Title: 'Génère ta clé Tailscale',
+    fts2Desc: 'Cette clé permet à la Fire TV de rejoindre le réseau de ce serveur, et rien d’autre.',
+    fts2Btn: 'Générer ma clé Tailscale',
+    fts2Busy: 'Création…',
+    fts2Valid: (t) => `Valable 1 h (jusqu'à ${t}), une seule utilisation.`,
+    fts2Once: 'Elle ne sera plus affichée : garde cette page ouverte ou copie-la maintenant.',
+    fts2Copied: 'Clé copiée.',
+    fts2Again: 'Générer une autre clé',
+    fts2Busy409: "L'accès Tailscale n'est pas disponible pour le moment. Préviens l'administrateur.",
+    ftsCheckLink: "Réglages › Vérifier les règles d'accès",
+    fts2Busy429: 'Trop de clés créées (3 par heure) : réessaie un peu plus tard.',
+    fts3Title: 'Entre la clé sur la TV',
+    fts3Desc: "Ouvre Tailscale sur la TV, puis le menu <b>⋮</b> en haut à droite › <b>Use an auth key</b> (« Utiliser une clé d'authentification »). Tape la clé, puis <b>Connect</b>.",
+    fts3Tip: "Taper une longue clé à la télécommande est pénible : copie-la sur ton téléphone et sers-toi de l'appli <b>Amazon Fire TV</b> du téléphone comme clavier.",
+    fts4Title: 'Autorise ce serveur',
+    fts4Desc: "Dès que la TV est sur Tailscale, ce serveur s'y connecte et la fenêtre « Autoriser le débogage ? » s'affiche sur la TV : coche <b>Toujours autoriser</b> puis OK. Le suivi se met à jour tout seul ici.",
+    ftsNone: 'Aucune clé en cours.',
+    ftsSt: {
+      'waiting-device': 'En attente de la TV sur Tailscale…',
+      'waiting-auth': 'Fenêtre d’autorisation affichée sur la TV : coche « Toujours autoriser » puis OK.',
+      offline: 'La TV ne répond pas : vérifie que le Débogage ADB est activé.',
+      done: 'TV ajoutée',
+      expired: 'Clé expirée',
+    },
+    ftsKey: (t) => `Clé créée à ${t}`,
+    ftsOpen: 'Ouvrir sa fiche',
+    ftsPrompt: "Afficher la fenêtre d'autorisation sur la TV",
+    ftsPromptBusy: 'Envoi…',
+    ftsPrompted: 'Demande envoyée : regarde l’écran de la TV.',
+    ftsAdded: (n) => `${n} est ajoutée.`,
+    // Réglages : client OAuth Tailscale
+    tsoTitle: 'Client OAuth Tailscale',
+    tsoOn: 'configuré',
+    tsoId: 'ID du client',
+    tsoSecret: 'Secret du client',
+    tsoKeep: 'Secret enregistré, laisse vide pour le garder',
+    tsoKeepId: 'ID enregistré, laisse vide pour le garder',
+    tsoHelp: "Permet à chacun d'ajouter sa Fire TV récente par Tailscale, sans passer par toi : le site crée des clés à usage unique valables 1 h. À créer dans la console Tailscale › Settings › <b>Trust credentials</b> (anciennement OAuth clients), avec uniquement les droits : <span class=\"mono\">Auth Keys</span> (écriture), <span class=\"mono\">Devices Core</span> (écriture), <span class=\"mono\">Policy File</span> (lecture), et l'étiquette <span class=\"mono\">tag:tvbox</span>. Le secret reste sur ce serveur et n'est jamais réaffiché.",
+    tsoSave: 'Enregistrer le client',
+    tsoSaved: 'Client OAuth enregistré.',
+    tsoDel: 'Supprimer le client',
+    tsoDeleted: 'Client OAuth supprimé.',
+    tsoCheck: "Vérifier les règles d'accès",
+    tsoCheckBusy: 'Vérification…',
+    tsoCheckOk: "Règles d'accès correctes : les TV ajoutées par Tailscale ne voient que ce serveur.",
+    tsoCheckKo: 'À corriger dans la console Tailscale :',
   },
 };
 const T = TXT.fr;
@@ -1703,12 +1760,13 @@ async function viewRemote(rid, id) {
 
 async function viewAddRemote(rid) {
   clearInterval(pairTimer);
+  stopFts();
   const known = new Set(S.devices.map((d) => d.id));
   const apk = `${location.host}/connect.apk`;
   $app.innerHTML = `
     ${crumbs([['Appareils', '#/'], ['Ajouter à distance']])}
     <div class="page-head"><div class="lead"><h1>Ajouter une TV à distance</h1><p class="t2 sm">Pour une TV qui n'est pas sur le même réseau que le serveur, par exemple chez un proche. L'appli <b>ATVM Connect</b> relie la TV à ce site, sans rien configurer sur la box.</p></div></div>
-    <div class="note attn" style="margin-bottom:16px">${ic("info")}<div><b>Fire TV récentes (Fire OS 8) :</b> ATVM Connect ne fonctionne pas, Amazon bloque le débogage depuis la TV elle-même. Pour ces modèles, la Fire TV doit rejoindre ton réseau Tailscale (ou être sur le même réseau que ce serveur).</div></div>
+    <div class="note attn" style="margin-bottom:16px">${ic("info")}<div><b>Fire TV récentes (Fire OS 8) :</b> ATVM Connect ne fonctionne pas, Amazon bloque le débogage depuis la TV elle-même. Pour ces modèles, la Fire TV doit rejoindre ton réseau Tailscale (ou être sur le même réseau que ce serveur) : voir plus bas, « Fire TV récente ».</div></div>
     <div class="panel">
       <ol class="steps">
         <li><div><h3>Installe ATVM Connect</h3>
@@ -1723,6 +1781,7 @@ async function viewAddRemote(rid) {
           <div id="pair-box"><button class="btn primary" id="pair-gen">Générer un code</button></div></div></li>
       </ol>
     </div>
+    ${ftsSection()}
     ${S.features.tailscale ? `
     <div class="panel">
       <details class="disclose" style="border-top:0">
@@ -1740,6 +1799,7 @@ async function viewAddRemote(rid) {
     <div class="note">${ic('shield')}<div>ATVM Connect ne fait rien tout seul : il exécute uniquement les optimisations que tu lances ici, et tu peux le retirer à tout moment depuis la fiche de la TV.</div></div>`;
 
   $$('[data-copyline]').forEach((b) => b.addEventListener('click', () => copyText(b.dataset.copyline, 'Adresse copiée.')));
+  bindFts(rid);
   $('#pair-gen').addEventListener('click', async (e) => {
     busy(e.currentTarget, true, 'Création…');
     try {
@@ -1772,6 +1832,121 @@ async function viewAddRemote(rid) {
       pairTimer = setInterval(tick, 1000);
     } catch (err) { toast(err.message, 'error'); busy(e.currentTarget, false); }
   });
+}
+
+// Fire TV récente (Fire OS 8) : la TV rejoint Tailscale avec une clé générée ici, puis le serveur s'y connecte
+let ftsTimer = null;
+const FTS_LIVE = new Set(['waiting-device', 'waiting-auth', 'offline']);
+const FTS_DOT = { 'waiting-device': 'accent', 'waiting-auth': 'note', offline: 'bad', done: 'ok', expired: '' };
+function stopFts() { clearInterval(ftsTimer); ftsTimer = null; }
+// Heure lisible (accepte une date ISO, des millisecondes ou des secondes)
+function hhmm(v) {
+  const n = typeof v === 'number' && v < 1e12 ? v * 1000 : v;
+  const d = new Date(n);
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+}
+
+function ftsSection() {
+  if (!S.features.tailscaleSelfService) {
+    return `<section class="section"><div class="section-head"><h2>${T.ftsTitle}</h2></div>
+      <div class="note">${ic('info')}<div>${T.ftsOff}${isAdmin() ? ` ${T.ftsOffAdmin}` : ''}</div></div></section>`;
+  }
+  const code = S.features.tailscaleDownloaderCode;
+  return `<section class="section" id="fts">
+    <div class="section-head"><h2>${T.ftsTitle}</h2></div>
+    <p class="t2">${T.ftsIntro}</p>
+    <div class="note attn">${ic('info')}<div>${T.ftsBefore} <a href="#/guide" data-guide-go="firetv">${T.ftsGuide}</a></div></div>
+    <div class="panel">
+      <ol class="steps">
+        <li><div><h3>${T.fts1Title}</h3>
+          <p>${code ? T.fts1Code : T.fts1NoCode}</p>
+          ${code ? `<div class="pair-code mono">${esc(code)}</div><p>${T.fts1After}</p>` : ''}</div></li>
+        <li><div><h3>${T.fts2Title}</h3><p>${T.fts2Desc}</p>
+          <div id="fts-key"><button class="btn primary" id="fts-gen">${ic('lock')}${T.fts2Btn}</button></div><div id="fts-err"></div></div></li>
+        <li><div><h3>${T.fts3Title}</h3><p>${T.fts3Desc}</p>
+          <div class="note" style="margin-top:8px">${ic('keyboard')}<div>${T.fts3Tip}</div></div></div></li>
+        <li><div><h3>${T.fts4Title}</h3><p>${T.fts4Desc}</p>
+          <div id="fts-list" class="fts-list" aria-live="polite"></div></div></li>
+      </ol>
+    </div>
+  </section>`;
+}
+
+function ftsRow(p) {
+  const st = String(p.state || '');
+  const label = T.ftsSt[st] || st;
+  let action = '';
+  if (st === 'done' && p.deviceId) action = `<a class="btn sm" href="#/tv/${encodeURIComponent(p.deviceId)}">${T.ftsOpen}</a>`;
+  else if (st === 'waiting-auth' || st === 'offline') action = `<button class="btn primary" data-fts-prompt="${esc(p.keyId)}">${ic('remote')}${T.ftsPrompt}</button>`;
+  const wait = st === 'waiting-device' ? '<span class="spin" aria-hidden="true"></span>' : `<span class="dot ${FTS_DOT[st] || ''}"></span>`;
+  return `<div class="fts-row">${wait}<div class="fts-txt"><div>${st === 'done' ? `<b>${esc(label)}</b>` : esc(label)}</div>
+    <div class="sm t3">${p.name ? `<span class="mono">${esc(p.name)}</span> · ` : ''}${esc(T.ftsKey(hhmm(p.createdAt)))}</div></div>${action}</div>`;
+}
+
+function bindFts(rid) {
+  $$('[data-guide-go]').forEach((a) => a.addEventListener('click', () => { guideKey = a.dataset.guideGo; }));
+  if (!S.features.tailscaleSelfService || !$('#fts-list')) return;
+  pageCleanup = stopFts;
+  const seen = new Map();
+  let first = true;
+  let last = '';
+  const poll = async () => {
+    if (rid !== renderId) { stopFts(); return; }
+    if (document.hidden && !first) return;
+    let list;
+    try { list = await api('/api/tailscale/pending'); } catch { return; }
+    if (rid !== renderId) return;
+    if (!Array.isArray(list)) list = [];
+    list = list.slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 5);
+    list.forEach((p) => {
+      const before = seen.get(p.keyId);
+      if (!first && before && before !== 'done' && p.state === 'done') toast(T.ftsAdded(p.name || 'La TV'));
+      seen.set(p.keyId, p.state);
+    });
+    first = false;
+    const html = list.length ? list.map(ftsRow).join('') : `<p class="sm t3">${T.ftsNone}</p>`;
+    if (html !== last) { $('#fts-list').innerHTML = html; last = html; }
+    const live = list.some((p) => FTS_LIVE.has(p.state));
+    if (live && !ftsTimer) ftsTimer = setInterval(poll, 5000);
+    if (!live && ftsTimer) stopFts();
+  };
+  $('#fts-list').addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-fts-prompt]');
+    if (!b) return;
+    busy(b, true, T.ftsPromptBusy);
+    try {
+      await api(`/api/tailscale/pending/${encodeURIComponent(b.dataset.ftsPrompt)}/prompt`, { method: 'POST' });
+      toast(T.ftsPrompted);
+      last = '';
+      poll();
+    } catch (err) { toast(err.message, 'error'); busy(b, false); }
+  });
+  const gen = async (e) => {
+    const btn = e.currentTarget;
+    busy(btn, true, T.fts2Busy);
+    try {
+      const r = await api('/api/tailscale/authkey', { method: 'POST' });
+      if (rid !== renderId) return;
+      const box = $('#fts-key');
+      box.innerHTML = `<div class="copy-line fts-key"><span class="mono">${esc(r.key)}</span><button class="btn sm" id="fts-copy">${ic('copy')}Copier</button></div>
+        <p class="sm t2">${esc(T.fts2Valid(hhmm(r.expiresAt)))} ${T.fts2Once}</p>
+        <div><button class="btn sm quiet" id="fts-gen">${T.fts2Again}</button></div>`;
+      if ($('#fts-err')) $('#fts-err').innerHTML = '';
+      $('#fts-copy').addEventListener('click', () => copyText(r.key, T.fts2Copied));
+      $('#fts-gen').addEventListener('click', gen);
+      $('#fts-copy').focus();
+      poll();
+    } catch (err) {
+      const msg = err.data && err.data.error ? err.message : err.status === 429 ? T.fts2Busy429 : err.status === 409 ? T.fts2Busy409 : err.message;
+      toast(msg, 'error');
+      busy(btn, false);
+      // Clé refusée (accès indisponible ou règles Tailscale qui n'isolent pas les TV) : l'administrateur va vérifier
+      const out = $('#fts-err');
+      if (out) out.innerHTML = err.status === 409 ? `<div class="note warn" style="margin-top:10px">${ic('alert')}<div class="stack"><span>${esc(msg)}</span>${isAdmin() ? `<div><a class="btn sm" href="#/settings">${ic('shield')}${T.ftsCheckLink}</a></div>` : ''}</div></div>` : '';
+    }
+  };
+  $('#fts-gen').addEventListener('click', gen);
+  poll();
 }
 
 // =====================================================================
@@ -2160,6 +2335,16 @@ async function viewSettings(rid) {
               </div>
               <p class="sm t3">Sert au bouton « Isoler » des TV Tailscale : pose l'étiquette et désactive l'expiration de la clé. À créer dans la console Tailscale (Settings › Keys), elle reste sur ce serveur.</p>
               <div class="form-row" style="gap:8px"><button class="btn sm primary" type="submit">Enregistrer</button>${S.settings.tailscale.hasApiKey ? '<button class="btn sm quiet" type="button" id="ts-api-del">Supprimer la clé</button>' : ''}</div>
+            </form>
+            <form id="ts-oauth" class="section ts-oauth" style="gap:10px">
+              <div class="lbl">${T.tsoTitle} ${S.settings.tailscale.hasOAuth ? `<span class="tag"><span class="dot ok"></span>${T.tsoOn}</span>` : ''}</div>
+              <p class="sm t3">${T.tsoHelp}</p>
+              <div class="form-row">
+                <label class="field">${T.tsoId}<input class="input lg mono" type="text" name="oauthClientId" autocomplete="off" spellcheck="false" value="${esc(S.settings.tailscale.oauthClientId || '')}" placeholder="${S.settings.tailscale.hasOAuth ? esc(T.tsoKeepId) : 'k123AbCdEf'}"></label>
+                <label class="field">${T.tsoSecret}<input class="input lg mono" type="password" name="oauthClientSecret" autocomplete="new-password" spellcheck="false" placeholder="${S.settings.tailscale.hasOAuth ? esc(T.tsoKeep) : 'tskey-client-…'}"></label>
+              </div>
+              <div class="form-row" style="gap:8px"><button class="btn sm primary" type="submit">${T.tsoSave}</button>${S.settings.tailscale.hasOAuth ? `<button class="btn sm" type="button" id="ts-check">${ic('shield')}${T.tsoCheck}</button><button class="btn sm quiet" type="button" id="ts-oauth-del">${T.tsoDel}</button>` : ''}</div>
+              <div id="ts-check-out"></div>
             </form>` : ''}
           </div>
         </div>
@@ -2218,6 +2403,38 @@ async function viewSettings(rid) {
       toast(body.tailscale.apiKey ? 'Clé API vérifiée et enregistrée.' : 'Réglages enregistrés.');
       viewSettings(renderId);
     } catch (e) { toast(e.message, 'error'); busy(btn, false); }
+  });
+  $('#ts-oauth')?.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const f = Object.fromEntries(new FormData(ev.target));
+    const body = { tailscale: {} };
+    if (f.oauthClientId.trim()) body.tailscale.oauthClientId = f.oauthClientId.trim();
+    if (f.oauthClientSecret.trim()) body.tailscale.oauthClientSecret = f.oauthClientSecret.trim();
+    if (!Object.keys(body.tailscale).length) return;
+    const btn = ev.target.querySelector('[type=submit]');
+    busy(btn, true, T.tsoCheckBusy);
+    try {
+      const r = await api('/api/settings', { method: 'POST', body });
+      S.settings = r.settings;
+      toast(T.tsoSaved);
+      viewSettings(renderId);
+    } catch (e) { toast(e.message, 'error'); busy(btn, false); }
+  });
+  $('#ts-oauth-del')?.addEventListener('click', async () => {
+    try { const r = await api('/api/settings', { method: 'POST', body: { tailscale: { oauthClientId: '', oauthClientSecret: '' } } }); S.settings = r.settings; toast(T.tsoDeleted); viewSettings(renderId); } catch (e) { toast(e.message, 'error'); }
+  });
+  $('#ts-check')?.addEventListener('click', async (ev) => {
+    const btn = ev.currentTarget;
+    const out = $('#ts-check-out');
+    busy(btn, true, T.tsoCheckBusy);
+    try {
+      const r = await api('/api/tailscale/check');
+      const w = Array.isArray(r.warnings) ? r.warnings : [];
+      out.innerHTML = r.ok && !w.length
+        ? `<div class="note">${ic('check')}<div>${T.tsoCheckOk}</div></div>`
+        : `<div class="note attn">${ic('alert')}<div class="stack"><b>${T.tsoCheckKo}</b>${w.length ? `<ul class="ts-warn">${w.map((x) => `<li>${esc(typeof x === 'string' ? x : x && x.message)}</li>`).join('')}</ul>` : ''}</div></div>`;
+    } catch (e) { out.innerHTML = `<div class="note warn">${ic('alert')}<div>${esc(e.message)}</div></div>`; }
+    busy(btn, false);
   });
   $('#ts-api-del')?.addEventListener('click', async () => {
     try { const r = await api('/api/settings', { method: 'POST', body: { tailscale: { apiKey: '' } } }); S.settings = r.settings; toast('Clé API supprimée.'); viewSettings(renderId); } catch (e) { toast(e.message, 'error'); }

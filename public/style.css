@@ -538,3 +538,15 @@ main.wide { max-width: 1680px; }
 .rb-when { flex-direction: row !important; flex-wrap: wrap; align-items: center; gap: 10px !important; }
 .rb-when .input { width: auto; display: inline-block; margin-left: 4px; }
 .rb-when .btn { margin-left: auto; }
+
+/* ---------- Fire TV récente par Tailscale (clé, suivi) et client OAuth */
+.fts-key .mono { user-select: all; }
+.fts-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.fts-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--sunken); }
+.fts-row > .spin { width: 14px; height: 14px; border-width: 2px; flex: none; }
+.fts-txt { flex: 1 1 220px; min-width: 0; color: var(--text); }
+.fts-txt .mono { overflow-wrap: anywhere; }
+.ts-oauth { border-top: 1px solid var(--line); padding-top: 14px; margin-top: 4px; }
+.ts-oauth .lbl { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.ts-warn { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+@media (max-width: 760px) { .fts-row > .btn { width: 100%; justify-content: center; } }

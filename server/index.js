@@ -15,9 +15,14 @@ const R = require('./lib/remote');
 const ACC = require('./lib/accessories');
 const RB = require('./lib/reboot');
 
-// Réglages renvoyés à l'interface : la clé API Tailscale n'en sort jamais
+// Réglages renvoyés à l'interface : la clé API et le secret OAuth Tailscale n'en sortent jamais
 const publicSettings = (s) => ({
-  tailscale: { enabled: !!(s.tailscale && s.tailscale.enabled), hasApiKey: !!(s.tailscale && s.tailscale.apiKey), tag: (s.tailscale && s.tailscale.tag) || 'tag:tvbox' },
+  tailscale: {
+    enabled: !!(s.tailscale && s.tailscale.enabled),
+    hasApiKey: !!(s.tailscale && s.tailscale.apiKey),
+    hasOAuth: !!(s.tailscale && s.tailscale.oauthClientId && s.tailscale.oauthClientSecret),
+    tag: (s.tailscale && s.tailscale.tag) || 'tag:tvbox',
+  },
   ai: { enabled: false },
 });
 
@@ -154,7 +159,12 @@ route('GET', '/api/state', 'user', async (ctx) => {
     version: VERSION,
     user: auth.publicUser(ctx.user),
     settings: admin ? publicSettings(store.settings()) : null,
-    features: { tailscale: !!(store.settings().tailscale || {}).enabled, downloaderCode: String(process.env.DOWNLOADER_CODE || store.settings().downloaderCode || '').replace(/\D/g, '') },
+    features: {
+      tailscale: !!(store.settings().tailscale || {}).enabled,
+      downloaderCode: String(process.env.DOWNLOADER_CODE || store.settings().downloaderCode || '').replace(/\D/g, ''),
+      tailscaleSelfService: TS.selfService(),
+      tailscaleDownloaderCode: TS.downloaderCode(),
+    },
     levels: O.LEVELS,
     devices: visibleDevices(ctx.user).map((d) => ({ ...publicDevice(d, admin), ...(admin ? { userNames: (d.users || []).map(userName).filter(Boolean) } : {}) }))
       .sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0)),
@@ -370,11 +380,31 @@ route('POST', '/api/settings', 'admin', async (ctx) => {
     }
     s.tailscale = { ...s.tailscale, apiKey: key };
   }
+  // Client OAuth (prioritaire sur la clé API) : chaîne vide = suppression ; vérifié dès qu'il est complet
+  const ts = body.tailscale || {};
+  if (typeof ts.oauthClientId === 'string' || typeof ts.oauthClientSecret === 'string') {
+    const next = { ...s.tailscale };
+    if (typeof ts.oauthClientId === 'string') {
+      const id = ts.oauthClientId.trim();
+      if (id && !/^[\w-]{4,100}$/.test(id)) throw fail("L'identifiant du client OAuth Tailscale est invalide.");
+      next.oauthClientId = id;
+    }
+    if (typeof ts.oauthClientSecret === 'string') {
+      const secret = ts.oauthClientSecret.trim();
+      if (secret && !/^tskey-client-[\w-]+$/.test(secret)) throw fail('Un secret de client OAuth Tailscale commence par « tskey-client- ».');
+      next.oauthClientSecret = secret;
+    }
+    if (!next.oauthClientId) delete next.oauthClientId;
+    if (!next.oauthClientSecret) delete next.oauthClientSecret;
+    if (next.oauthClientId && next.oauthClientSecret) await TS.testOAuth(next.oauthClientId, next.oauthClientSecret);
+    s.tailscale = next;
+  }
   if (body.tailscale && typeof body.tailscale.tag === 'string') {
     const tag = body.tailscale.tag.trim();
     if (!/^tag:[a-z0-9-]+$/i.test(tag)) throw fail('Une étiquette Tailscale ressemble à « tag:tvbox ».');
     s.tailscale = { ...s.tailscale, tag };
   }
+  if (body.tailscale) TS.invalidatePolicy(); // accès ou étiquette changés : la politique sera relue
   s.ai = { enabled: false }; // l'agent IA n'est pas encore disponible
   store.saveSettings(s);
   let tailscale = null;
@@ -384,6 +414,12 @@ route('POST', '/api/settings', 'admin', async (ctx) => {
   }
   return { settings: publicSettings(s), tailscale };
 });
+
+// ---------- Tailscale en libre-service : chaque utilisateur obtient une clé pour sa TV (Fire TV, etc.)
+route('POST', '/api/tailscale/authkey', 'user', async (ctx) => TS.createAuthKey(ctx.user));
+route('GET', '/api/tailscale/pending', 'user', async (ctx) => TS.pendingFor(ctx.user));
+route('POST', '/api/tailscale/pending/:keyId/prompt', 'user', async (ctx, p) => TS.prompt(decodeURIComponent(p.keyId), ctx.user));
+route('GET', '/api/tailscale/check', 'admin', async () => TS.checkPolicy());
 
 route('GET', '/api/admin/users', 'admin', async () => ({ users: auth.listUsers(), invites: auth.listInvites() }));
 route('POST', '/api/admin/invites', 'admin', async (ctx) => ({ invite: auth.createInvite(ctx.user, ctx.body.note) }));
@@ -481,4 +517,5 @@ server.listen(PORT, () => {
   console.log(`ATV Manager ${VERSION} sur http://0.0.0.0:${PORT}${auth.needsSetup() ? ' (premier lancement : crée le compte administrateur)' : ''}`);
   A.adb(['start-server']).then((r) => { if (!r.ok) console.error('adb :', r.err); });
   RB.start(D.reach);
+  TS.start();
 });
