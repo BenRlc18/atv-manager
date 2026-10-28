@@ -196,6 +196,23 @@ async function connectClaimed(k, { reconnect = false } = {}) {
   return { state: 'done', deviceId: saved.id, name: saved.label || saved.deviceName || [saved.brand, saved.model].filter(Boolean).join(' ') };
 }
 
+// Clé à rattacher parmi celles d'un même utilisateur : la plus récente créée avant l'appareil
+// (tolérance d'horloge comprise), sinon la plus ancienne
+function pickKey(match, d) {
+  const t = deviceTime(d);
+  const sorted = [...match].sort((a, b) => a.createdAt - b.createdAt);
+  const before = sorted.filter((k) => k.createdAt <= t);
+  if (before.length) return before[before.length - 1];
+  const nearly = sorted.filter((k) => k.createdAt <= t + SKEW_MS);
+  return nearly.length ? nearly[nearly.length - 1] : sorted[0];
+}
+
+// Révoque une clé inutilisée sur Tailscale (échec silencieux) et la retire de tskeys.json
+async function revokeKey(keyId) {
+  try { await call('DELETE', `/tailnet/-/keys/${encodeURIComponent(keyId)}`); } catch (e) { console.error(`[Tailscale] révocation d'une clé inutilisée : ${e.message}`); }
+  saveKeys(keys().filter((x) => x.keyId !== keyId));
+}
+
 function updateKey(keyId, patch) {
   const list = keys();
   const k = list.find((x) => x.keyId === keyId);
@@ -223,9 +240,11 @@ async function syncOnce() {
     // Uniquement les appareils étiquetés TV, pas encore rattachés ni déjà enregistrés
     const candidates = devices.filter((d) => Array.isArray(d.tags) && d.tags.includes(tag) && !taken.has(String(d.id)) && ipv4(d) && !known.has(ipv4(d)));
     for (const d of candidates) {
-      const match = unclaimed.filter((k) => !k.claimedDeviceId && inWindow(k, d));
-      if (match.length !== 1) { if (match.length > 1) ambiguous++; continue; }
-      const k = match[0];
+      const match = unclaimed.filter((k) => !k.claimedDeviceId && !k.revoked && inWindow(k, d));
+      if (!match.length) continue;
+      // Plusieurs clés en attente : ambigu seulement si elles appartiennent à des utilisateurs différents
+      if (new Set(match.map((k) => k.userId)).size > 1) { ambiguous++; continue; }
+      const k = pickKey(match, d);
       // La clé est à usage unique : si plusieurs nouveaux appareils tombent dans sa fenêtre, c'est ambigu aussi
       const rivals = candidates.filter((x) => inWindow(k, x));
       if (rivals.length !== 1) { ambiguous++; continue; }
@@ -233,6 +252,11 @@ async function syncOnce() {
       Object.assign(k, { claimedDeviceId: String(d.id), claimedAt: Date.now(), ip: ipv4(d), tsName: d.hostname || String(d.name || '').split('.')[0], state: 'offline' });
       updateKey(k.keyId, { claimedDeviceId: k.claimedDeviceId, claimedAt: k.claimedAt, ip: k.ip, tsName: k.tsName, state: k.state });
       claimed++;
+      // Les autres clés inutilisées du même utilisateur qui couvraient cet appareil sont révoquées
+      for (const o of match.filter((x) => x.keyId !== k.keyId)) {
+        o.revoked = true;
+        await revokeKey(o.keyId);
+      }
       console.log(`[Tailscale] TV rattachée à une clé en libre-service (${k.tsName || k.ip})`);
     }
   }
@@ -376,4 +400,6 @@ const _reset = () => { tokenCache = null; policyCache = null; inFlight = null; l
 module.exports = {
   config, test, testOAuth, isolate, hasOAuth, hasCredentials, selfService, downloaderCode,
   createAuthKey, sync, pendingFor, prompt, start, checkPolicy, invalidatePolicy, policyWarnings, parseHujson, _reset,
+  // Utilisés par le mode « code TV » (tscodes.js)
+  call, connectClaimed, requireSafePolicy, ipv4, CLAIM_RETRY_MS,
 };

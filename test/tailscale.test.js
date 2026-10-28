@@ -25,7 +25,7 @@ const SAFE_POLICY = { tagOwners: { 'tag:tvbox': ['autogroup:admin'] }, acls: [{ 
 
 // --- Fausse API Tailscale
 function fakeApi() {
-  const api = { calls: [], devices: [], policy: SAFE_POLICY, aclStatus: 200, keySeq: 0, tokens: 0, keyBodies: [], keyExpiry: [] };
+  const api = { calls: [], devices: [], policy: SAFE_POLICY, aclStatus: 200, keySeq: 0, tokens: 0, keyBodies: [], keyExpiry: [], revoked: [] };
   global.fetch = async (url, init = {}) => {
     const u = new URL(url);
     const p = u.pathname.replace('/api/v2', '');
@@ -45,6 +45,8 @@ function fakeApi() {
       return json(200, { id: `k${++api.keySeq}`, key: `tskey-auth-k${api.keySeq}-SECRET`, created: new Date(now).toISOString(), expires: new Date(now + b.expirySeconds * 1000).toISOString() });
     }
     if (p === '/tailnet/-/devices') return json(200, { devices: api.devices });
+    const del = p.match(/^\/tailnet\/-\/keys\/([^/]+)$/);
+    if (del && init.method === 'DELETE') { api.revoked.push(del[1]); return json(200, {}); }
     const m = p.match(/^\/device\/([^/]+)\/key$/);
     if (m) { api.keyExpiry.push(m[1]); return json(200, {}); }
     if (p === '/tailnet/-/acl') return api.aclStatus === 200 ? json(200, api.policy) : json(api.aclStatus, { message: 'insufficient scope' });
@@ -168,6 +170,47 @@ test('rattachement ambigu : deux clés en attente dans la même fenêtre, rien n
   assert.deepStrictEqual(api.keyExpiry, []);
   assert.deepStrictEqual(tv.connects, []);
   assert.deepStrictEqual(store.devices(), {});
+});
+
+test('plusieurs clés du même utilisateur : rattachée à la plus récente avant l\'appareil, les autres révoquées', async () => {
+  reset();
+  const api = fakeApi();
+  await TS.createAuthKey(ALICE);
+  await TS.createAuthKey(ALICE);
+  await TS.createAuthKey(ALICE);
+  const list = store.read('tskeys.json', []);
+  const t0 = Date.now();
+  list[0].createdAt = t0 - 50e3; list[1].createdAt = t0 - 40e3; list[2].createdAt = t0 + 30e3; // k3 créée après l'appareil
+  store.write('tskeys.json', list);
+  api.devices.push(tvDevice('5001', '100.64.0.50', t0));
+  tv.states['100.64.0.50:5555'] = 'device';
+  const r = await TS.sync({ force: true });
+  assert.deepStrictEqual(r, { claimed: 1, ambiguous: 0 });
+  assert.deepStrictEqual(api.keyExpiry, ['5001']);
+  assert.deepStrictEqual(api.revoked.sort(), ['k1', 'k3']);
+  const left = store.read('tskeys.json', []);
+  assert.deepStrictEqual(left.map((k) => k.keyId), ['k2']);
+  assert.strictEqual(left[0].claimedDeviceId, '5001');
+  assert.strictEqual((await pending(ALICE))[0].state, 'done');
+  assert.deepStrictEqual(store.devices()['SER-100.64.0.50:5555'].users, ['u-alice']);
+});
+
+test('révocation en échec : silencieuse, clé retirée quand même', async () => {
+  reset();
+  const api = fakeApi();
+  await TS.createAuthKey(ALICE);
+  await TS.createAuthKey(ALICE);
+  const orig = global.fetch;
+  global.fetch = async (url, init = {}) => (init.method === 'DELETE' ? { ok: false, status: 500, text: async () => '{}' } : orig(url, init));
+  api.devices.push(tvDevice('5101', '100.64.0.51', Date.now() + 1000));
+  const logs = [];
+  const oe = console.error;
+  console.error = (...a) => logs.push(a.join(' '));
+  try {
+    assert.strictEqual((await TS.sync({ force: true })).claimed, 1);
+  } finally { console.error = oe; global.fetch = orig; }
+  assert.strictEqual(store.read('tskeys.json', []).length, 1);
+  assert.ok(logs.some((l) => /révocation/.test(l)) && logs.every((l) => !l.includes(SECRET)));
 });
 
 test('rattachement ambigu : deux nouveaux appareils pour une seule clé', async () => {

@@ -78,6 +78,19 @@ Chaque utilisateur du site peut obtenir lui-même une clé pour sa TV, sans que 
 2. Dans ATV Manager, **Réglages → Accès à distance par Tailscale** : colle l'identifiant du client et son secret (`tskey-client-…`). Ils restent sur le serveur et ne sont jamais réaffichés. Ils remplacent la clé API si les deux sont présents.
 3. Le libre-service reste **bloqué tant que les règles d'accès n'isolent pas les TV** (étape 2) : `tag:tvbox` doit être dans `tagOwners` et aucune règle (`acls`, `grants`, `ssh`) ne doit avoir `tag:tvbox` ou `*` en source. Une clé préautorisée laisse entrer n'importe quel appareil avec cette étiquette : c'est cette isolation qui le rend inoffensif. Le contrôle est refait toutes les 10 minutes, ou aussitôt en cliquant sur le bouton de contrôle des réglages.
 
+**5. Option : mode « code TV » (sans saisir de clé sur la TV)**
+
+Taper une clé de 60 caractères à la télécommande est pénible. Sur l'écran **Log in** de Tailscale TV, un code de 10 à 15 caractères s'affiche sous le QR code. Ce code ne peut être validé que par un administrateur du réseau Tailscale, dans sa console (aucune API ne le permet) : le site s'occupe du reste.
+
+1. **L'utilisateur** ouvre Tailscale sur la TV, choisit **Log in** et recopie dans le site le code affiché sous le QR code (3 demandes par heure au plus ; une demande non traitée expire au bout de 2 h).
+2. **L'administrateur** est prévenu (badge dans le site, et notification Gotify si elle est configurée). Dans la console Tailscale : **Machines → Add device → Client device → Android → onglet Input code**, il saisit le code.
+3. Dans le site, sur la demande, l'administrateur choisit l'appareil qui vient d'apparaître (seuls sont proposés les appareils Android ou TV sans étiquette, créés après la demande et pas encore enregistrés), ou refuse la demande.
+4. Le serveur pose l'étiquette `tag:tvbox`, désactive l'expiration de la clé de la TV et s'y connecte en ADB : l'utilisateur accepte « Autoriser le débogage ? » sur la TV (le site peut réafficher la fenêtre, et réessaie pendant 1 h). La TV est ajoutée pour l'utilisateur qui l'a demandée.
+
+Mêmes prérequis que le libre-service par clé (client OAuth avec **Devices Core : Write** sur `tag:tvbox`, règles d'accès qui isolent les TV). Le client OAuth doit pouvoir poser `tag:tvbox` sur un appareil existant : sinon le site affiche « Tailscale refuse de poser l'étiquette ».
+
+**Notification Gotify (optionnelle).** Dans **Réglages**, renseigne l'adresse de ton serveur [Gotify](https://gotify.net) et un jeton d'application (ou les variables `GOTIFY_URL` et `GOTIFY_TOKEN`) : chaque nouvelle demande de code t'est envoyée, avec le code et le lien vers la console. Le jeton reste sur le serveur (jamais réaffiché, transmis dans l'en-tête `X-Gotify-Key`) ; un bouton envoie un message de test. Si Gotify ne répond pas, la demande est quand même enregistrée.
+
 
 ## Gérer une TV à distance avec ATVM Connect
 
@@ -131,6 +144,8 @@ Sur iPhone et Android, « Ajouter à l'écran d'accueil » l'installe comme une 
 | `DOWNLOADER_CODE` | Code court Downloader (go.aftvnews.com) affiché pour installer ATVM Connect | aucun |
 | `TAILSCALE_SOCKET` | Socket du démon Tailscale (option Tailscale) | `/var/run/tailscale/tailscaled.sock` |
 | `TAILSCALE_DOWNLOADER_CODE` | Code Downloader affiché pour installer l'appli Tailscale sur une Fire TV | `4723177` |
+| `GOTIFY_URL` | Serveur Gotify pour prévenir l'administrateur (demandes « code TV ») ; remplacé par le réglage s'il existe | aucun |
+| `GOTIFY_TOKEN` | Jeton d'application Gotify (jamais renvoyé à l'interface) | aucun |
 
 Pour l'option Tailscale en Docker, monte le socket : `-v /var/run/tailscale:/var/run/tailscale:ro`.
 

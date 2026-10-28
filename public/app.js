@@ -32,6 +32,8 @@ const ICONS = {
   rc: '<rect x="8" y="2.5" width="8" height="19" rx="3"/><circle cx="12" cy="8" r="1.8"/><path d="M12 13h.01M12 16.5h.01"/>',
   bluetooth: '<path d="m7 7 10 10-5 4V3l5 4L7 17"/>',
   gamepad: '<path d="M7.5 7h9a4.5 4.5 0 0 1 4.4 5.5l-.9 4a2.6 2.6 0 0 1-4.4 1.2L14 16h-4l-1.6 1.7A2.6 2.6 0 0 1 4 16.5l-.9-4A4.5 4.5 0 0 1 7.5 7z"/><path d="M8 10.5v3M6.5 12h3M15.5 11h.01M17.5 13h.01"/>',
+  external: '<path d="M14 4h6v6M20 4l-9 9"/><path d="M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/>',
+  bell: '<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>',
   keyboard: '<rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/>',
   mouse: '<rect x="6" y="3" width="12" height="18" rx="6"/><path d="M12 7v4"/>',
   headphones: '<path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/>',
@@ -125,11 +127,88 @@ const TXT = {
     ftsCheckLink: "Réglages › Vérifier les règles d'accès",
     fts2Busy429: 'Trop de clés créées (3 par heure) : réessaie un peu plus tard.',
     fts3Title: 'Entre la clé sur la TV',
-    fts3Desc: "Ouvre Tailscale sur la TV, puis la roue crantée <b>Settings</b> › <b>Accounts</b> › menu <b>⋮</b> en haut à droite › <b>Use an auth key</b> (ne choisis pas « Log in », qui demanderait un QR code). Tape la clé, puis <b>Connect</b>.",
-    fts3Tip: "Taper une longue clé à la télécommande est pénible : copie-la sur ton téléphone et sers-toi de l'appli <b>Amazon Fire TV</b> du téléphone comme clavier.",
+    fts3Desc: "Ouvre Tailscale sur la TV, puis la roue crantée <b>Settings</b> › <b>Accounts</b> › menu <b>⋮</b> en haut à droite › <b>Use an auth key</b> (pas « Log in », qui sert à l'autre façon). Tape la clé, puis <b>Connect</b>.",
+    fts3Tip: "<b>Le plus simple :</b> ouvre ce site sur ton téléphone, appuie sur <b>Copier</b>, puis dans l'appli <b>Amazon Fire TV</b> (télécommande du téléphone), touche l'icône clavier et colle la clé.",
     fts4Title: 'Autorise ce serveur',
     fts4Desc: "Dès que la TV est sur Tailscale, ce serveur s'y connecte et la fenêtre « Autoriser le débogage ? » s'affiche sur la TV : coche <b>Toujours autoriser</b> puis OK. Le suivi se met à jour tout seul ici.",
-    ftsNone: 'Aucune clé en cours.',
+    ftsNone: 'Aucune demande en cours.',
+    // Deux façons de relier la Fire TV à Tailscale
+    ftsHowTitle: 'Relie la TV à Tailscale',
+    ftsHowDesc: 'Deux façons, au choix :',
+    ftsOptCode: "Plus simple : avec le code affiché par la TV (validation par l'administrateur)",
+    ftsOptCodeDesc: "Tu gagnes : juste un code court à taper ici. Tu perds : l'administrateur doit le valider, ça peut prendre un peu de temps.",
+    ftsOptKey: 'Avec une clé à entrer sur la TV',
+    ftsOptKeyDesc: 'Tu gagnes : immédiat, sans attendre personne. Tu perds : une longue clé à entrer sur la TV (collable depuis ton téléphone).',
+    // Option 2 : code affiché par la TV
+    dc1: 'Ouvre Tailscale sur la TV et choisis <b>Log in</b> : un QR code s’affiche, avec un <b>code</b> en dessous.',
+    dc2: "Tape ce code ici et envoie-le à l'administrateur :",
+    dcLabel: 'Code affiché par la TV',
+    dcSend: "Envoyer à l'administrateur",
+    dcBusy: 'Envoi…',
+    dcSent: "Code envoyé à l'administrateur.",
+    dc3: "L'administrateur valide le code dans Tailscale. <b>Ça peut prendre un peu de temps</b> : il doit être disponible. Tu peux fermer cette page, le suivi ci-dessous reprendra quand tu reviendras.",
+    dcErr400: 'Ce code ne ressemble pas à celui de la TV : vérifie-le (lettres et chiffres sous le QR code).',
+    dcErr409: "Cette façon n'est pas disponible pour le moment. Préviens l'administrateur ou utilise la clé.",
+    dcErr429: 'Trop de codes envoyés : réessaie un peu plus tard.',
+    dcRow: (t) => `Code envoyé à ${t}`,
+    dcBy: (n) => `par ${n}`,
+    dcValidate: 'Valider',
+    dcSt: {
+      'waiting-admin': "En attente de validation par l'administrateur",
+      'waiting-auth': 'Fenêtre d’autorisation affichée sur la TV : coche « Toujours autoriser » puis OK.',
+      offline: 'La TV ne répond pas : vérifie que le Débogage ADB est activé.',
+      done: 'TV ajoutée',
+      expired: 'Expirée : sur la TV, refais « Log in » et envoie le nouveau code.',
+      rejected: "Refusée par l'administrateur",
+    },
+    // Administrateur : codes Tailscale à valider
+    tvwBanner: (n) => `${n} TV ${n > 1 ? 'attendent' : 'attend'} ta validation dans Tailscale`,
+    tvwBannerDesc: 'Des personnes ont envoyé le code affiché par leur Fire TV.',
+    tvwOpen: 'Voir les demandes',
+    tvwTitle: 'TV à valider dans Tailscale',
+    tvwIntro: "Chaque demande contient le code affiché par une Fire TV. Tu valides le code dans ta console Tailscale, puis tu rattaches l'appareil créé : ce serveur l'étiquette TV, l'isole (il ne voit que ce serveur) et s'y connecte.",
+    tvwNone: 'Aucune TV en attente de validation.',
+    tvwFrom: (n, t) => `Demande de ${n} · ${t}`,
+    tvwSomeone: "quelqu'un",
+    tvwCopy: 'Copier le code',
+    tvwCopied: 'Code copié.',
+    tvwStep1: 'Saisis ce code dans la console Tailscale :',
+    tvwPath: 'Add device › Client device › Android › Input code',
+    tvwConsole: 'Ouvrir la console Tailscale',
+    tvwThen: 'puis',
+    tvwStep2: "Une fois le code validé, choisis l'appareil créé :",
+    tvwPick: "J'ai validé : choisir l'appareil",
+    tvwPickBusy: 'Recherche…',
+    tvwNoCand: "Rien de nouveau pour l'instant, réessaie dans quelques secondes.",
+    tvwRefresh: 'Actualiser',
+    tvwAttach: 'Rattacher',
+    tvwAttachBusy: 'Rattachement…',
+    tvwCreated: (t) => `créé à ${t}`,
+    tvwConfirmTitle: (n) => `Rattacher ${n} ?`,
+    tvwConfirm: "<p>Cet appareil sera <b>étiqueté TV</b> et <b>isolé</b> : il ne pourra plus joindre que ce serveur sur ton réseau Tailscale, et sa clé n'expirera plus.</p><p><b>Ne choisis pas un téléphone ou un PC personnel</b> : il perdrait l'accès à tes autres appareils Tailscale.</p>",
+    tvwConfirmBtn: 'Rattacher',
+    tvwAttached: 'Appareil rattaché : la TV va demander l’autorisation de débogage.',
+    tvwReject: 'Refuser',
+    tvwRejectTitle: 'Refuser cette demande ?',
+    tvwRejectDesc: (n) => `<p>${n} verra « Refusée » et devra recommencer. Rien n'est modifié dans Tailscale.</p>`,
+    tvwRejected: 'Demande refusée.',
+    tvwRecent: 'Suivi des autres demandes',
+    // Réglages : notifications Gotify
+    ntfTitle: 'Notifications',
+    ntfLbl: 'Gotify',
+    ntfOn: 'configuré',
+    ntfDesc: "Reçois une notification sur ton téléphone quand quelqu'un attend ta validation (par exemple le code d'une Fire TV). Tu gagnes : pas besoin de surveiller le site. Tu perds : rien, mais il te faut un serveur <b>Gotify</b> et un jeton d'application créé dedans. Le jeton reste sur ce serveur et n'est jamais réaffiché.",
+    ntfUrl: 'Adresse du serveur Gotify',
+    ntfToken: "Jeton d'application",
+    ntfKeep: 'Jeton enregistré, laisse vide pour le garder',
+    ntfSave: 'Enregistrer',
+    ntfSaved: 'Notifications enregistrées.',
+    ntfTest: 'Envoyer un test',
+    ntfTestBusy: 'Envoi…',
+    ntfTestOk: 'Notification de test envoyée : regarde ton téléphone.',
+    ntfDel: 'Désactiver',
+    ntfDeleted: 'Notifications désactivées.',
+    ntfNeedUrl: "Indique l'adresse et le jeton.",
     ftsSt: {
       'waiting-device': 'En attente de la TV sur Tailscale…',
       'waiting-auth': 'Fenêtre d’autorisation affichée sur la TV : coche « Toujours autoriser » puis OK.',
@@ -262,7 +341,7 @@ function promptBox({ title, label, value = '', placeholder = '' }) {
 
 async function loadState() {
   const st = await api('/api/state');
-  Object.assign(S, { features: st.features || {}, pendingAgents: st.pendingAgents || [], user: st.user, devices: st.devices, settings: st.settings || S.settings, levels: st.levels, version: st.version, subnets: st.subnets, loaded: true });
+  Object.assign(S, { features: st.features || {}, pendingAgents: st.pendingAgents || [], user: st.user, devices: st.devices, settings: st.settings || S.settings, levels: st.levels, version: st.version, subnets: st.subnets, tsCodesWaiting: Number(st.tailscaleCodesWaiting) || 0, loaded: true });
   drawChrome();
 }
 
@@ -307,6 +386,7 @@ const routes = [
   [/^\/guide\/?$/, viewGuide, 'guide'],
   [/^\/settings\/?$/, viewSettings, 'settings'],
   [/^\/add\/?$/, viewAddRemote, 'devices'],
+  [/^\/tailscale-codes\/?$/, viewTsCodes, 'devices'],
   [/^\/tv\/([^/]+)\/level\/([123])\/?$/, viewOptimize, 'devices'],
   [/^\/tv\/([^/]+)\/remote\/?$/, viewRemote, 'devices'],
   [/^\/tv\/([^/]+)\/?$/, viewDevice, 'devices'],
@@ -501,6 +581,7 @@ function drawDevices() {
         <button class="btn primary" id="scan" ${S.scanning ? 'disabled' : ''}>${S.scanning ? '<span class="spin"></span>Recherche en cours…' : `${ic('search')}Rechercher les TV`}</button>
       </div>
     </div>
+    ${S.tsCodesWaiting > 0 ? `<div class="note attn tvw-banner">${ic('alert')}<div class="tvw-banner-in"><div><b>${esc(T.tvwBanner(S.tsCodesWaiting))}</b><p class="sm t2">${T.tvwBannerDesc}</p></div><a class="btn primary" href="#/tailscale-codes">${T.tvwOpen}</a></div></div>` : ''}
     ${info && info.tailscale && info.tailscale.enabled && !info.tailscale.ok ? `<div class="note attn">${ic('info')}<div>${esc(info.tailscale.message)}</div></div>` : ''}
     ${rows.length ? `<div class="panel"><ul class="list">${rows.join('')}</ul></div>` : emptyPanel()}
     <div class="panel">
@@ -1836,8 +1917,9 @@ async function viewAddRemote(rid) {
 
 // Fire TV récente (Fire OS 8) : la TV rejoint Tailscale avec une clé générée ici, puis le serveur s'y connecte
 let ftsTimer = null;
-const FTS_LIVE = new Set(['waiting-device', 'waiting-auth', 'offline']);
-const FTS_DOT = { 'waiting-device': 'accent', 'waiting-auth': 'note', offline: 'bad', done: 'ok', expired: '' };
+const FTS_LIVE = new Set(['waiting-device', 'waiting-admin', 'waiting-auth', 'offline']);
+const FTS_DOT = { 'waiting-device': 'accent', 'waiting-admin': 'accent', 'waiting-auth': 'note', offline: 'bad', done: 'ok', expired: '', rejected: 'bad' };
+const FTS_SPIN = new Set(['waiting-device', 'waiting-admin']);
 function stopFts() { clearInterval(ftsTimer); ftsTimer = null; }
 // Heure lisible (accepte une date ISO, des millisecondes ou des secondes)
 function hhmm(v) {
@@ -1852,6 +1934,8 @@ function ftsSection() {
       <div class="note">${ic('info')}<div>${T.ftsOff}${isAdmin() ? ` ${T.ftsOffAdmin}` : ''}</div></div></section>`;
   }
   const code = S.features.tailscaleDownloaderCode;
+  const way = ftsWay();
+  const opt = (v, title, desc) => `<label class="choice fts-way ${way === v ? 'on' : ''}"><input type="radio" name="fts-way" value="${v}" ${way === v ? 'checked' : ''}><div><b>${title}</b><p class="sm t2">${desc}</p></div></label>`;
   return `<section class="section" id="fts">
     <div class="section-head"><h2>${T.ftsTitle}</h2></div>
     <p class="t2">${T.ftsIntro}</p>
@@ -1861,10 +1945,30 @@ function ftsSection() {
         <li><div><h3>${T.fts1Title}</h3>
           <p>${code ? T.fts1Code : T.fts1NoCode}</p>
           ${code ? `<div class="pair-code mono">${esc(code)}</div><p>${T.fts1After}</p>` : ''}</div></li>
-        <li><div><h3>${T.fts2Title}</h3><p>${T.fts2Desc}</p>
-          <div id="fts-key"><button class="btn primary" id="fts-gen">${ic('lock')}${T.fts2Btn}</button></div><div id="fts-err"></div></div></li>
-        <li><div><h3>${T.fts3Title}</h3><p>${T.fts3Desc}</p>
-          <div class="note" style="margin-top:8px">${ic('keyboard')}<div>${T.fts3Tip}</div></div></div></li>
+        <li><div><h3>${T.ftsHowTitle}</h3><p>${T.ftsHowDesc}</p>
+          <div class="fts-ways" role="radiogroup" aria-label="${esc(T.ftsHowTitle)}">
+            ${opt('code', T.ftsOptCode, T.ftsOptCodeDesc)}
+            ${opt('key', T.ftsOptKey, T.ftsOptKeyDesc)}
+          </div>
+          <div class="fts-way-body" id="fts-way-code" ${way === 'code' ? '' : 'hidden'}>
+            <ol class="fts-sub">
+              <li><p>${T.dc1}</p></li>
+              <li><p>${T.dc2}</p>
+                <form id="dc-form" class="form-row dc-form">
+                  <label class="field">${T.dcLabel}<input class="input lg mono dc-input" type="text" name="code" required maxlength="40" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+                  <button class="btn primary" type="submit">${T.dcSend}</button>
+                </form>
+                <div id="dc-err"></div></li>
+              <li><p>${T.dc3}</p></li>
+            </ol>
+          </div>
+          <div class="fts-way-body" id="fts-way-key" ${way === 'key' ? '' : 'hidden'}>
+            <ol class="fts-sub">
+              <li><p><b>${T.fts2Title}.</b> ${T.fts2Desc}</p>
+                <div id="fts-key"><button class="btn primary" id="fts-gen" type="button">${ic('lock')}${T.fts2Btn}</button></div><div id="fts-err"></div></li>
+              <li><p><b>${T.fts3Title}.</b> ${T.fts3Desc}</p></li>
+            </ol>
+          </div></div></li>
         <li><div><h3>${T.fts4Title}</h3><p>${T.fts4Desc}</p>
           <div id="fts-list" class="fts-list" aria-live="polite"></div></div></li>
       </ol>
@@ -1872,15 +1976,72 @@ function ftsSection() {
   </section>`;
 }
 
-function ftsRow(p) {
-  const st = String(p.state || '');
-  const label = T.ftsSt[st] || st;
+// Façon choisie (code ou clé), retenue sur cet appareil
+function ftsWay() {
+  let v = '';
+  try { v = localStorage.getItem('atvm.ftsWay') || ''; } catch { /* stockage indisponible */ }
+  return v === 'code' || v === 'key' ? v : (isAdmin() ? 'key' : 'code');
+}
+
+// Demande (clé ou code) ramenée à une forme commune
+function ftsItem(kind, p) {
+  return {
+    kind,
+    id: String(kind === 'key' ? p.keyId : p.id),
+    st: String((kind === 'key' ? p.state : p.status) || ''),
+    name: p.name || '',
+    deviceId: p.deviceId || '',
+    createdAt: p.createdAt,
+    userName: p.userName || '',
+    code: p.code || '',
+  };
+}
+
+function ftsRow(x, { validate = true } = {}) {
+  const label = (x.kind === 'code' ? T.dcSt : T.ftsSt)[x.st] || x.st;
   let action = '';
-  if (st === 'done' && p.deviceId) action = `<a class="btn sm" href="#/tv/${encodeURIComponent(p.deviceId)}">${T.ftsOpen}</a>`;
-  else if (st === 'waiting-auth' || st === 'offline') action = `<button class="btn primary" data-fts-prompt="${esc(p.keyId)}">${ic('remote')}${T.ftsPrompt}</button>`;
-  const wait = st === 'waiting-device' ? '<span class="spin" aria-hidden="true"></span>' : `<span class="dot ${FTS_DOT[st] || ''}"></span>`;
-  return `<div class="fts-row">${wait}<div class="fts-txt"><div>${st === 'done' ? `<b>${esc(label)}</b>` : esc(label)}</div>
-    <div class="sm t3">${p.name ? `<span class="mono">${esc(p.name)}</span> · ` : ''}${esc(T.ftsKey(hhmm(p.createdAt)))}</div></div>${action}</div>`;
+  if (x.st === 'done' && x.deviceId) action = `<a class="btn sm" href="#/tv/${encodeURIComponent(x.deviceId)}">${T.ftsOpen}</a>`;
+  else if (x.st === 'waiting-auth' || x.st === 'offline') action = `<button class="btn primary" data-fts-prompt="${esc(x.id)}" data-kind="${x.kind}">${ic('remote')}${T.ftsPrompt}</button>`;
+  else if (x.st === 'waiting-admin' && validate && isAdmin()) action = `<a class="btn sm primary" href="#/tailscale-codes">${T.dcValidate}</a>`;
+  const wait = FTS_SPIN.has(x.st) ? '<span class="spin" aria-hidden="true"></span>' : `<span class="dot ${FTS_DOT[x.st] || ''}"></span>`;
+  const sub = [
+    x.name ? `<span class="mono">${esc(x.name)}</span>` : '',
+    esc(x.kind === 'code' ? T.dcRow(whenShort(x.createdAt)) : T.ftsKey(whenShort(x.createdAt))),
+    x.userName && isAdmin() ? esc(T.dcBy(x.userName)) : '',
+  ].filter(Boolean).join(' · ');
+  return `<div class="fts-row">${wait}<div class="fts-txt"><div>${x.st === 'done' ? `<b>${esc(label)}</b>` : esc(label)}</div>
+    <div class="sm t3">${sub}</div></div>${action}</div>`;
+}
+
+// Heure seule si c'est aujourd'hui, sinon jour et heure
+function whenShort(v) {
+  const n = typeof v === 'number' && v < 1e12 ? v * 1000 : v;
+  const d = new Date(n);
+  if (Number.isNaN(d.getTime())) return '';
+  if (d.toDateString() === new Date().toDateString()) return hhmm(v);
+  return `${d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })} ${hhmm(v)}`;
+}
+
+// Relance la fenêtre « Autoriser le débogage ? » sur la TV
+async function ftsPrompt(b, after) {
+  busy(b, true, T.ftsPromptBusy);
+  const base = b.dataset.kind === 'code' ? '/api/tailscale/devicecode' : '/api/tailscale/pending';
+  try {
+    await api(`${base}/${encodeURIComponent(b.dataset.ftsPrompt)}/prompt`, { method: 'POST' });
+    toast(T.ftsPrompted);
+    after();
+  } catch (err) { toast(err.message, 'error'); busy(b, false); }
+}
+
+// Liste des demandes par code (tableau vide si le serveur ne connaît pas encore cette route)
+async function dcList() {
+  try {
+    const r = await api('/api/tailscale/devicecode');
+    return Array.isArray(r) ? r : [];
+  } catch (err) {
+    if (err.status === 404) return [];
+    throw err;
+  }
 }
 
 function bindFts(rid) {
@@ -1893,34 +2054,72 @@ function bindFts(rid) {
   const poll = async () => {
     if (rid !== renderId) { stopFts(); return; }
     if (document.hidden && !first) return;
-    let list;
-    try { list = await api('/api/tailscale/pending'); } catch { return; }
-    if (rid !== renderId) return;
-    if (!Array.isArray(list)) list = [];
-    list = list.slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 5);
-    list.forEach((p) => {
-      const before = seen.get(p.keyId);
-      if (!first && before && before !== 'done' && p.state === 'done') toast(T.ftsAdded(p.name || 'La TV'));
-      seen.set(p.keyId, p.state);
+    const [keys, codes] = await Promise.all([
+      api('/api/tailscale/pending').then((r) => (Array.isArray(r) ? r : [])).catch(() => null),
+      dcList().catch(() => null),
+    ]);
+    if (rid !== renderId || (keys === null && codes === null)) return;
+    let list = [...(keys || []).map((p) => ftsItem('key', p)), ...(codes || []).map((p) => ftsItem('code', p))];
+    list = list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 6);
+    list.forEach((x) => {
+      const k = `${x.kind}:${x.id}`;
+      const before = seen.get(k);
+      if (!first && before && before !== x.st) {
+        if (x.st === 'done') toast(T.ftsAdded(x.name || 'La TV'));
+        else if (x.st === 'rejected') toast(T.dcSt.rejected, 'error');
+      }
+      seen.set(k, x.st);
     });
     first = false;
-    const html = list.length ? list.map(ftsRow).join('') : `<p class="sm t3">${T.ftsNone}</p>`;
+    const html = list.length ? list.map((x) => ftsRow(x)).join('') : `<p class="sm t3">${T.ftsNone}</p>`;
     if (html !== last) { $('#fts-list').innerHTML = html; last = html; }
-    const live = list.some((p) => FTS_LIVE.has(p.state));
+    const live = list.some((x) => FTS_LIVE.has(x.st));
     if (live && !ftsTimer) ftsTimer = setInterval(poll, 5000);
     if (!live && ftsTimer) stopFts();
   };
-  $('#fts-list').addEventListener('click', async (e) => {
+  const repoll = () => { last = ''; poll(); };
+  $('#fts-list').addEventListener('click', (e) => {
     const b = e.target.closest('[data-fts-prompt]');
-    if (!b) return;
-    busy(b, true, T.ftsPromptBusy);
-    try {
-      await api(`/api/tailscale/pending/${encodeURIComponent(b.dataset.ftsPrompt)}/prompt`, { method: 'POST' });
-      toast(T.ftsPrompted);
-      last = '';
-      poll();
-    } catch (err) { toast(err.message, 'error'); busy(b, false); }
+    if (b) ftsPrompt(b, repoll);
   });
+
+  // Choix entre le code de la TV et la clé
+  $$('input[name="fts-way"]').forEach((r) => r.addEventListener('change', () => {
+    const v = r.value;
+    try { localStorage.setItem('atvm.ftsWay', v); } catch { /* stockage indisponible */ }
+    $$('.fts-way').forEach((l) => l.classList.toggle('on', l.querySelector('input').checked));
+    $('#fts-way-code').hidden = v !== 'code';
+    $('#fts-way-key').hidden = v !== 'key';
+  }));
+
+  // Option 2 : envoi du code affiché par la TV
+  $('#dc-form').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const input = ev.target.elements.code;
+    const code = input.value.trim();
+    if (!code) return;
+    const btn = ev.target.querySelector('[type=submit]');
+    const out = $('#dc-err');
+    busy(btn, true, T.dcBusy);
+    try {
+      await api('/api/tailscale/devicecode', { method: 'POST', body: { code } });
+      if (rid !== renderId) return;
+      input.value = '';
+      out.innerHTML = '';
+      toast(T.dcSent);
+      busy(btn, false);
+      repoll();
+      $('#fts-list').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } catch (err) {
+      const fallback = { 400: T.dcErr400, 409: T.dcErr409, 429: T.dcErr429 }[err.status];
+      const msg = err.data && err.data.error ? err.message : fallback || err.message;
+      out.innerHTML = `<div class="note warn" style="margin-top:10px">${ic('alert')}<div>${esc(msg)}</div></div>`;
+      busy(btn, false);
+      input.focus();
+    }
+  });
+
+  // Option 1 : clé à usage unique
   const gen = async (e) => {
     const btn = e.currentTarget;
     busy(btn, true, T.fts2Busy);
@@ -1928,9 +2127,10 @@ function bindFts(rid) {
       const r = await api('/api/tailscale/authkey', { method: 'POST' });
       if (rid !== renderId) return;
       const box = $('#fts-key');
-      box.innerHTML = `<div class="copy-line fts-key"><span class="mono">${esc(r.key)}</span><button class="btn sm" id="fts-copy">${ic('copy')}Copier</button></div>
+      box.innerHTML = `<div class="copy-line fts-key"><span class="mono">${esc(r.key)}</span><button class="btn sm" id="fts-copy" type="button">${ic('copy')}Copier</button></div>
+        <div class="note fts-tip">${ic('keyboard')}<div>${T.fts3Tip}</div></div>
         <p class="sm t2">${esc(T.fts2Valid(hhmm(r.expiresAt)))} ${T.fts2Once}</p>
-        <div><button class="btn sm quiet" id="fts-gen">${T.fts2Again}</button></div>`;
+        <div><button class="btn sm quiet" id="fts-gen" type="button">${T.fts2Again}</button></div>`;
       if ($('#fts-err')) $('#fts-err').innerHTML = '';
       $('#fts-copy').addEventListener('click', () => copyText(r.key, T.fts2Copied));
       $('#fts-gen').addEventListener('click', gen);
@@ -1947,6 +2147,128 @@ function bindFts(rid) {
   };
   $('#fts-gen').addEventListener('click', gen);
   poll();
+}
+
+// =====================================================================
+// Administrateur : TV à valider dans Tailscale (code affiché par la TV)
+// =====================================================================
+const TS_CONSOLE = 'https://console.tailscale.com/admin/machines';
+let tvwTimer = null;
+function stopTvw() { clearInterval(tvwTimer); tvwTimer = null; }
+
+async function viewTsCodes(rid) {
+  stopTvw();
+  await loadState();
+  if (rid !== renderId) return;
+  if (!isAdmin()) { location.hash = '#/add'; return; }
+  $app.innerHTML = `
+    ${crumbs([['Appareils', '#/'], [T.tvwTitle]])}
+    <div class="page-head"><div class="lead"><h1>${T.tvwTitle}</h1><p class="t2 sm">${T.tvwIntro}</p></div></div>
+    <div id="tvw-list" class="tvw-list" aria-live="polite"><div class="panel panel-pad"><span class="spin" aria-hidden="true"></span></div></div>
+    <section class="section" id="tvw-other" hidden>
+      <div class="section-head"><h2>${T.tvwRecent}</h2></div>
+      <div id="tvw-other-list" class="fts-list" style="margin-top:0"></div>
+    </section>`;
+  pageCleanup = stopTvw;
+  const box = $('#tvw-list');
+  let lastOther = '';
+  const card = (p) => {
+    const who = p.userName || T.tvwSomeone;
+    return `<div class="panel tvw-card" data-id="${esc(p.id)}" data-who="${esc(who)}">
+      <div class="tvw-head"><span class="spin" aria-hidden="true"></span><div class="tvw-who"><b>${esc(T.tvwFrom(who, whenShort(p.createdAt)))}</b></div>
+        <button class="btn sm danger" type="button" data-reject>${ic('x')}${T.tvwReject}</button></div>
+      <ol class="steps">
+        <li><div><h3>${T.tvwStep1}</h3>
+          <div class="tvw-code"><span class="pair-code mono">${esc(p.code)}</span><button class="btn sm" type="button" data-copy>${ic('copy')}${T.tvwCopy}</button></div>
+          <div class="tvw-console"><a class="btn" href="${TS_CONSOLE}" target="_blank" rel="noopener noreferrer">${ic('external')}${T.tvwConsole}</a>
+          <span class="sm t2">${T.tvwThen} <span class="mono">${esc(T.tvwPath)}</span></span></div></div></li>
+        <li><div><h3>${T.tvwStep2}</h3>
+          <div class="tvw-cands"><button class="btn primary" type="button" data-pick>${ic('search')}${T.tvwPick}</button></div></div></li>
+      </ol>
+    </div>`;
+  };
+  const cands = (list) => {
+    if (!list.length) {
+      return `<div class="note">${ic('info')}<div class="stack"><span>${T.tvwNoCand}</span><div><button class="btn sm" type="button" data-pick>${ic('refresh')}${T.tvwRefresh}</button></div></div></div>`;
+    }
+    return `<ul class="list tvw-cand-list">${list.map((c) => {
+      const host = c.hostname || c.name || c.tsId;
+      const meta = [c.name && c.name !== c.hostname ? `<span class="mono">${esc(c.name)}</span>` : '', esc(c.os || ''), c.created ? esc(T.tvwCreated(whenShort(c.created))) : '', Array.isArray(c.addresses) && c.addresses[0] ? `<span class="mono">${esc(c.addresses[0])}</span>` : ''].filter(Boolean).join(' · ');
+      return `<li class="tvw-cand"><div class="tvw-cand-txt"><div class="mono tvw-host">${esc(host)}</div><div class="sm t3">${meta}</div></div>
+        <button class="btn sm primary" type="button" data-attach="${esc(c.tsId)}" data-host="${esc(host)}">${T.tvwAttach}</button></li>`;
+    }).join('')}</ul>
+    <div><button class="btn sm quiet" type="button" data-pick>${ic('refresh')}${T.tvwRefresh}</button></div>`;
+  };
+  const poll = async () => {
+    if (rid !== renderId) { stopTvw(); return; }
+    let all;
+    try { all = await dcList(); } catch (err) { if (!box.querySelector('.tvw-card')) box.innerHTML = `<div class="note warn">${ic('alert')}<div>${esc(err.message)}</div></div>`; return; }
+    if (rid !== renderId) return;
+    const items = all.map((p) => ({ ...p, id: String(p.id) })).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    const waiting = items.filter((p) => p.status === 'waiting-admin');
+    S.tsCodesWaiting = waiting.length;
+    // Cartes : on ajoute ou retire sans toucher à celles en cours (liste d'appareils ouverte)
+    const ids = new Set(waiting.map((p) => p.id));
+    $$('.tvw-card', box).forEach((c) => { if (!ids.has(c.dataset.id)) c.remove(); });
+    if (!waiting.length) box.innerHTML = `<div class="panel panel-pad tvw-empty"><span class="dot ok"></span><span>${T.tvwNone}</span></div>`;
+    else {
+      box.querySelector('.tvw-empty')?.remove();
+      box.querySelector(':scope > .panel-pad')?.remove();
+      box.querySelector(':scope > .note')?.remove();
+      waiting.forEach((p) => { if (!$$('.tvw-card', box).some((c) => c.dataset.id === p.id)) box.insertAdjacentHTML('beforeend', card(p)); });
+    }
+    const other = items.filter((p) => p.status !== 'waiting-admin').reverse().slice(0, 8);
+    $('#tvw-other').hidden = !other.length;
+    const html = other.map((p) => ftsRow(ftsItem('code', p), { validate: false })).join('');
+    if (html !== lastOther) { $('#tvw-other-list').innerHTML = html; lastOther = html; }
+  };
+  const byId = (el) => el.closest('.tvw-card');
+  box.addEventListener('click', async (e) => {
+    const c = byId(e.target);
+    if (!c) return;
+    const id = c.dataset.id;
+    const url = `/api/tailscale/devicecode/${encodeURIComponent(id)}`;
+    if (e.target.closest('[data-copy]')) { copyText(c.querySelector('.pair-code').textContent, T.tvwCopied); return; }
+    const pick = e.target.closest('[data-pick]');
+    if (pick) {
+      busy(pick, true, T.tvwPickBusy);
+      try {
+        const list = await api(`${url}/candidates`);
+        c.querySelector('.tvw-cands').innerHTML = cands(Array.isArray(list) ? list : []);
+        c.querySelector('.tvw-cands [data-attach], .tvw-cands [data-pick]')?.focus();
+      } catch (err) { toast(err.message, 'error'); busy(pick, false); }
+      return;
+    }
+    const att = e.target.closest('[data-attach]');
+    if (att) {
+      const ok = await confirmBox({ title: T.tvwConfirmTitle(att.dataset.host), html: T.tvwConfirm, confirm: T.tvwConfirmBtn });
+      if (!ok) return;
+      busy(att, true, T.tvwAttachBusy);
+      try {
+        await api(`${url}/attach`, { method: 'POST', body: { tsId: att.dataset.attach } });
+        toast(T.tvwAttached);
+        poll();
+      } catch (err) { toast(err.message, 'error'); busy(att, false); }
+      return;
+    }
+    const rej = e.target.closest('[data-reject]');
+    if (rej) {
+      const ok = await confirmBox({ title: T.tvwRejectTitle, html: T.tvwRejectDesc(esc(c.dataset.who)), confirm: T.tvwReject, danger: true });
+      if (!ok) return;
+      busy(rej, true, T.dcBusy);
+      try {
+        await api(`${url}/reject`, { method: 'POST' });
+        toast(T.tvwRejected);
+        poll();
+      } catch (err) { toast(err.message, 'error'); busy(rej, false); }
+    }
+  });
+  $('#tvw-other-list').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-fts-prompt]');
+    if (b) ftsPrompt(b, () => { lastOther = ''; poll(); });
+  });
+  await poll();
+  tvwTimer = setInterval(() => { if (!document.hidden) poll(); }, 5000);
 }
 
 // =====================================================================
@@ -2303,6 +2625,66 @@ async function copyText(text, okMsg) {
   }
 }
 
+// Réglages : notifications Gotify (le jeton n'est jamais renvoyé par le serveur)
+function notifySection() {
+  const n = (S.settings && S.settings.notify) || {};
+  return `<section class="section" id="notify">
+      <div class="section-head"><h2>${T.ntfTitle}</h2></div>
+      <div class="panel">
+        <form id="ntf-form" class="setting">
+          <div>
+            <div class="lbl">${ic('bell')}${T.ntfLbl} ${n.hasGotify ? `<span class="tag"><span class="dot ok"></span>${T.ntfOn}</span>` : ''}</div>
+            <p class="desc">${T.ntfDesc}</p>
+          </div>
+          <div class="more">
+            <div class="form-row">
+              <label class="field">${T.ntfUrl}<input class="input lg mono" type="url" name="gotifyUrl" autocomplete="off" spellcheck="false" value="${esc(n.gotifyUrl || '')}" placeholder="https://gotify.exemple.fr"></label>
+              <label class="field">${T.ntfToken}<input class="input lg mono" type="password" name="gotifyToken" autocomplete="new-password" spellcheck="false" placeholder="${n.hasGotify ? esc(T.ntfKeep) : 'A1b2C3d4E5f6G7h'}"></label>
+            </div>
+            <div class="form-row" style="gap:8px"><button class="btn sm primary" type="submit">${T.ntfSave}</button>${n.hasGotify ? `<button class="btn sm" type="button" id="ntf-test">${ic('bell')}${T.ntfTest}</button><button class="btn sm quiet" type="button" id="ntf-del">${T.ntfDel}</button>` : ''}</div>
+          </div>
+        </form>
+      </div>
+    </section>`;
+}
+
+function bindNotify() {
+  const form = $('#ntf-form');
+  if (!form) return;
+  const has = !!(S.settings.notify && S.settings.notify.hasGotify);
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const f = Object.fromEntries(new FormData(form));
+    const url = String(f.gotifyUrl || '').trim();
+    const token = String(f.gotifyToken || '').trim();
+    if (!url || (!has && !token)) { toast(T.ntfNeedUrl, 'error'); return; }
+    const body = { notify: { gotifyUrl: url } };
+    if (token) body.notify.gotifyToken = token;
+    const btn = form.querySelector('[type=submit]');
+    busy(btn, true, T.tsoCheckBusy);
+    try {
+      const r = await api('/api/settings', { method: 'POST', body });
+      if (r.settings) S.settings = r.settings;
+      toast(T.ntfSaved);
+      viewSettings(renderId);
+    } catch (e) { toast(e.message, 'error'); busy(btn, false); }
+  });
+  $('#ntf-test')?.addEventListener('click', async (ev) => {
+    const btn = ev.currentTarget;
+    busy(btn, true, T.ntfTestBusy);
+    try { await api('/api/notify/test', { method: 'POST' }); toast(T.ntfTestOk); } catch (e) { toast(e.message, 'error'); }
+    busy(btn, false);
+  });
+  $('#ntf-del')?.addEventListener('click', async () => {
+    try {
+      const r = await api('/api/settings', { method: 'POST', body: { notify: { gotifyUrl: '', gotifyToken: '' } } });
+      if (r.settings) S.settings = r.settings;
+      toast(T.ntfDeleted);
+      viewSettings(renderId);
+    } catch (e) { toast(e.message, 'error'); }
+  });
+}
+
 async function viewSettings(rid) {
   await loadState();
   if (rid !== renderId) return;
@@ -2370,6 +2752,8 @@ async function viewSettings(rid) {
       </div>
     </section>
 
+    ${notifySection()}
+
     <section class="section" id="people"></section>
     <section class="section" id="apps-admin"></section>
 
@@ -2390,6 +2774,7 @@ async function viewSettings(rid) {
   bindAccount();
   drawPeople(rid);
   drawAppsAdmin(rid);
+  bindNotify();
   $('#ts-api')?.addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const f = Object.fromEntries(new FormData(ev.target));

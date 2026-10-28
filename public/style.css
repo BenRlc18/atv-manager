@@ -550,3 +550,48 @@ main.wide { max-width: 1680px; }
 .ts-oauth .lbl { display: flex; align-items: center; gap: 8px; font-weight: 600; }
 .ts-warn { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
 @media (max-width: 760px) { .fts-row > .btn { width: 100%; justify-content: center; } }
+
+/* ---------- Fire TV : deux façons de rejoindre Tailscale (code de la TV ou clé) */
+.fts-ways { margin-top: 10px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--panel); }
+.fts-ways .choice { grid-template-columns: 18px minmax(0, 1fr); }
+.fts-ways .choice b { color: var(--text); }
+.fts-ways .choice p { margin-top: 2px; }
+.fts-way-body { margin-top: 14px; }
+.fts-sub { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 12px; }
+.fts-sub li::marker { color: var(--text-3); font-variant-numeric: tabular-nums; }
+.dc-form { margin-top: 8px; }
+.dc-form .field { flex: 1 1 200px; max-width: 320px; }
+.dc-input { font-size: 18px; letter-spacing: .12em; }
+.dc-form .btn { height: 38px; }
+.fts-tip { margin: 8px 0; }
+
+/* ---------- Administrateur : TV à valider dans Tailscale */
+.tvw-banner { align-items: center; }
+.tvw-banner svg.i { margin-top: 0; }
+.tvw-banner-in { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.tvw-banner-in b { color: var(--text); }
+.tvw-list { display: flex; flex-direction: column; gap: 16px; }
+.tvw-head { display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-bottom: 1px solid var(--line); }
+.tvw-head > .spin { width: 14px; height: 14px; flex: none; }
+.tvw-who { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.tvw-code { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 4px 0 10px; }
+.tvw-code .pair-code { margin: 0; overflow-wrap: anywhere; }
+.tvw-console { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.tvw-console .mono { overflow-wrap: anywhere; }
+.tvw-cands { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; margin-top: 6px; }
+.tvw-cands > .tvw-cand-list, .tvw-cands > .note { align-self: stretch; }
+.tvw-cand-list { border: 1px solid var(--line); border-radius: 6px; background: var(--sunken); }
+.tvw-cand { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 12px; }
+.tvw-cand-txt { flex: 1 1 200px; min-width: 0; }
+.tvw-host { font-size: 14px; color: var(--text); overflow-wrap: anywhere; }
+.tvw-cand .t3 .mono { font-size: 12px; }
+.tvw-empty { display: flex; align-items: center; gap: 10px; color: var(--text-2); }
+@media (max-width: 760px) {
+  .tvw-head { padding: 12px 16px; }
+  .dc-form .field { max-width: none; }
+  .dc-form .btn, .tvw-banner-in .btn { width: 100%; justify-content: center; }
+  .tvw-code .pair-code { font-size: 28px; }
+}
+/* Une étape ne doit jamais élargir la page (bouton long sur téléphone) */
+.steps > li { grid-template-columns: 28px minmax(0, 1fr); }
+@media (max-width: 760px) { .fts-row > .btn { white-space: normal; height: auto; min-height: 36px; padding-top: 6px; padding-bottom: 6px; text-align: center; line-height: 1.3; } }

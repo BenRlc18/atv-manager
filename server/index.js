@@ -10,6 +10,8 @@ const O = require('./lib/optimizer');
 const auth = require('./lib/auth');
 const AG = require('./lib/agents');
 const TS = require('./lib/tailscale');
+const TSC = require('./lib/tscodes');
+const NT = require('./lib/notify');
 const APPS = require('./lib/apps');
 const R = require('./lib/remote');
 const ACC = require('./lib/accessories');
@@ -24,6 +26,7 @@ const publicSettings = (s) => ({
     tag: (s.tailscale && s.tailscale.tag) || 'tag:tvbox',
   },
   ai: { enabled: false },
+  notify: NT.publicConfig(), // { hasGotify, gotifyUrl } : le jeton n'est jamais renvoyé
 });
 
 // Lien de téléchargement de l'appli ATVM Connect (redirection depuis /connect.apk, facile à taper dans Downloader)
@@ -171,6 +174,8 @@ route('GET', '/api/state', 'user', async (ctx) => {
     // TV associées avec ATVM Connect mais pas encore autorisées : toutes pour l'administrateur, les siennes pour un invité
     pendingAgents: AG.pending().filter((a) => admin || a.userId === ctx.user.id).map((a) => ({ ...a, userName: userName(a.userId) })),
     subnets: admin ? D.localSubnets() : [],
+    // Demandes « code TV » à valider dans la console Tailscale (badge administrateur)
+    ...(admin ? { tailscaleCodesWaiting: TSC.waitingCount() } : {}),
   };
 });
 
@@ -405,6 +410,15 @@ route('POST', '/api/settings', 'admin', async (ctx) => {
     s.tailscale = { ...s.tailscale, tag };
   }
   if (body.tailscale) TS.invalidatePolicy(); // accès ou étiquette changés : la politique sera relue
+  // Notification Gotify (optionnelle) : chaîne vide = suppression ; le jeton n'est jamais renvoyé
+  if (body.notify && typeof body.notify === 'object') {
+    const n = { ...(s.notify || {}) };
+    if (typeof body.notify.gotifyUrl === 'string') n.gotifyUrl = NT.validUrl(body.notify.gotifyUrl);
+    if (typeof body.notify.gotifyToken === 'string') n.gotifyToken = NT.validToken(body.notify.gotifyToken);
+    if (!n.gotifyUrl) delete n.gotifyUrl;
+    if (!n.gotifyToken) delete n.gotifyToken;
+    s.notify = n;
+  }
   s.ai = { enabled: false }; // l'agent IA n'est pas encore disponible
   store.saveSettings(s);
   let tailscale = null;
@@ -420,6 +434,18 @@ route('POST', '/api/tailscale/authkey', 'user', async (ctx) => TS.createAuthKey(
 route('GET', '/api/tailscale/pending', 'user', async (ctx) => TS.pendingFor(ctx.user));
 route('POST', '/api/tailscale/pending/:keyId/prompt', 'user', async (ctx, p) => TS.prompt(decodeURIComponent(p.keyId), ctx.user));
 route('GET', '/api/tailscale/check', 'admin', async () => TS.checkPolicy());
+
+// Mode « code TV » : l'utilisateur donne le code affiché par Tailscale, l'administrateur le valide dans la console
+// Tailscale puis choisit ici l'appareil apparu
+route('POST', '/api/tailscale/devicecode', 'user', async (ctx) => TSC.create(ctx.user, ctx.body.code));
+route('GET', '/api/tailscale/devicecode', 'user', async (ctx) => TSC.listFor(ctx.user));
+route('GET', '/api/tailscale/devicecode/:id/candidates', 'admin', async (ctx, p) => TSC.candidates(decodeURIComponent(p.id)));
+route('POST', '/api/tailscale/devicecode/:id/attach', 'admin', async (ctx, p) => TSC.attach(decodeURIComponent(p.id), ctx.body.tsId));
+route('POST', '/api/tailscale/devicecode/:id/reject', 'admin', async (ctx, p) => TSC.reject(decodeURIComponent(p.id)));
+route('POST', '/api/tailscale/devicecode/:id/prompt', 'user', async (ctx, p) => TSC.prompt(decodeURIComponent(p.id), ctx.user));
+
+// Notification de test (Gotify)
+route('POST', '/api/notify/test', 'admin', async () => NT.send('OptiTV : test', 'Les notifications de ton serveur OptiTV fonctionnent.', 5));
 
 route('GET', '/api/admin/users', 'admin', async () => ({ users: auth.listUsers(), invites: auth.listInvites() }));
 route('POST', '/api/admin/invites', 'admin', async (ctx) => ({ invite: auth.createInvite(ctx.user, ctx.body.note) }));
@@ -518,4 +544,5 @@ server.listen(PORT, () => {
   A.adb(['start-server']).then((r) => { if (!r.ok) console.error('adb :', r.err); });
   RB.start(D.reach);
   TS.start();
+  TSC.start();
 });
