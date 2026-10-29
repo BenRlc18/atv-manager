@@ -16,6 +16,7 @@ const APPS = require('./lib/apps');
 const R = require('./lib/remote');
 const ACC = require('./lib/accessories');
 const RB = require('./lib/reboot');
+const PL = require('./lib/plume');
 
 // Réglages renvoyés à l'interface : la clé API et le secret OAuth Tailscale n'en sortent jamais
 const publicSettings = (s) => ({
@@ -327,6 +328,17 @@ route('POST', '/api/devices/:id/reset-launcher', 'user', async (ctx, p) => {
   const r = await O.resetLauncher(target, dev);
   try { await runAudit(dev, target); } catch { /* idem */ }
   return r;
+});
+
+// Lanceur Plume : état, puis activation / annulation comme écran d'accueil (enregistrée dans l'historique)
+route('GET', '/api/devices/:id/plume', 'user', async (ctx, p) => {
+  const { target } = await needDevice(ctx.user, p.id);
+  const { installed, version, active, granted } = await PL.status(target);
+  return { installed, version, active, granted };
+});
+route('POST', '/api/devices/:id/plume', 'user', async (ctx, p) => {
+  const { dev, target } = await needDevice(ctx.user, p.id);
+  return PL.run(target, dev, String(ctx.body.action || ''));
 });
 
 route('POST', '/api/devices/:id/open-store', 'user', async (ctx, p) => {

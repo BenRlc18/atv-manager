@@ -101,6 +101,37 @@ const TXT = {
     homeOld: 'Fonction disponible après la mise à jour du serveur.',
     homeNames: { google: 'Google TV', atv: 'Android TV' },
     homeHist: "Lanceur d'origine remis",
+    // Lanceur Plume (écran d'accueil)
+    plumeTitle: 'Lanceur Plume',
+    plumeMissing: "Installe Plume Launcher sur la TV, puis reviens ici pour l'utiliser comme écran d'accueil.",
+    plumeRefresh: 'Actualiser',
+    plumeDesc: "Le bouton Accueil de la télécommande ouvrira Plume. Tu gagnes un accueil simple, sans publicité. Tu perds les suggestions de l'accueil d'origine, qui reste installé en secours.",
+    plumeA11y: "Plume reçoit un service d'accessibilité : c'est nécessaire pour intercepter le bouton Accueil.",
+    plumeEnable: 'Utiliser Plume comme écran d\'accueil',
+    plumeEnableBusy: 'Mise en place…',
+    plumeActive: "Plume est l'écran d'accueil",
+    plumeActiveDesc: "Le bouton Accueil ouvre Plume. Le lanceur d'origine est toujours installé et peut revenir à tout moment.",
+    plumeNoGrant: "Le service d'accessibilité de Plume n'est pas actif : le bouton Accueil peut encore ouvrir l'accueil d'origine. Ouvre Plume une fois sur la TV, puis réessaie.",
+    plumeRetry: 'Réessayer',
+    plumeDisable: "Revenir à l'accueil d'origine",
+    plumeDisableBusy: 'Retour en cours…',
+    plumeDisableTitle: "Revenir à l'accueil d'origine ?",
+    plumeDisableConfirm: "Le bouton Accueil rouvrira l'accueil d'origine (Google TV, Android TV ou celui du fabricant), avec ses suggestions et publicités. Plume reste installé : tu pourras le remettre ici.",
+    plumeDisableBtn: 'Revenir',
+    plumeOk: "C'est fait : le bouton Accueil ouvre Plume.",
+    plumeTodo: 'Ouvre Plume une fois sur la TV pour terminer sa configuration, puis réessaie.',
+    plumeUnsure: "Plume est activé, mais le bouton Accueil n'a pas pu être vérifié. Appuie dessus sur la TV pour contrôler.",
+    plumeOff: "C'est fait : l'accueil d'origine est revenu.",
+    plumeKo: "Plume n'a pas pu être réglé complètement.",
+    plumeGone: "Plume n'est plus installé sur la TV.",
+    plumeLog: 'Détail des opérations',
+    plumeHistOn: "Plume activé comme écran d'accueil",
+    plumeHistOff: 'Plume retiré, accueil d\'origine remis',
+    plumeHistOk: 'Fait',
+    plumeHistTodo: 'À terminer sur la TV',
+    plumeHistKo: 'Incomplet',
+    plumeHistEmpty: 'Aucun détail enregistré.',
+    plumeErr: "Impossible de lire l'état de Plume sur la TV.",
     stockLabel: "Désactiver aussi l'accueil d'origine",
     stockDesc: "pour libérer le plus de mémoire. Sur certaines TV, un bouton de la télécommande peut ne plus rien faire. Réactivable depuis l'historique ou avec « Remettre le lanceur d'origine ».",
     stockOff: '(impossible sur cette TV)',
@@ -977,6 +1008,8 @@ async function viewDevice(rid, id) {
       </div>
     </section>
 
+    <section class="section" id="plume" hidden></section>
+
     <section class="section" id="home-reset">
       <div class="panel">
         <div class="setting">
@@ -1027,6 +1060,7 @@ async function viewDevice(rid, id) {
   });
   bindForget(d);
   bindResetLauncher(d);
+  drawPlume(rid, d);
   bindReboot(d);
   drawHistory(rid, id);
   loadDeviceStats(rid, id);
@@ -1087,6 +1121,101 @@ function bindResetLauncher(d) {
     drawHistory(rid, d.id);
     drawAudit(rid, d.id);
   });
+}
+
+// Lanceur Plume : l'utiliser comme écran d'accueil, ou revenir à l'accueil d'origine
+async function drawPlume(rid, d, result = null) {
+  const box = $('#plume');
+  if (!box) return;
+  const url = `/api/devices/${encodeURIComponent(d.id)}/plume`;
+  let p;
+  try {
+    p = await api(url);
+  } catch (e) {
+    if (rid !== renderId) return;
+    if (e.status === 404) { box.hidden = true; return; } // serveur sans cette fonction
+    p = { error: e.message };
+  }
+  if (rid !== renderId) return;
+  const head = (extra = '') => `<div class="lbl">${ic('home')}${esc(T.plumeTitle)}${p.installed && p.version ? ` <span class="mono sm t3 num">${esc(p.version)}</span>` : ''}${extra}</div>`;
+  const refresh = `<button class="btn sm quiet" id="plume-refresh">${ic('refresh')}${esc(T.plumeRefresh)}</button>`;
+  let body;
+  if (p.error) {
+    body = `<div class="setting"><div>${head()}<p class="desc">${esc(T.plumeErr)} ${esc(p.error)}</p></div>${refresh}</div>`;
+  } else if (!p.installed) {
+    body = `<div class="setting"><div>${head()}<p class="desc">${esc(T.plumeMissing)}</p></div>${refresh}</div>`;
+  } else if (p.active) {
+    body = `<div class="setting"><div>${head()}<p class="plume-state"><span class="tag"><span class="dot ${p.granted === false ? 'note' : 'ok'}"></span>${esc(T.plumeActive)}</span></p>${p.granted === false ? '' : `<p class="desc">${esc(T.plumeActiveDesc)}</p>`}</div>
+      <button class="btn sm" id="plume-off">${ic('undo')}${esc(T.plumeDisable)}</button>
+      <div class="more" id="plume-result"></div>
+      ${p.granted === false || (result && result.homeOk === false) ? `<div class="more">${result ? '' : `<div class="note attn">${ic('info')}<div>${esc(T.plumeNoGrant)}</div></div>`}<div><button class="btn sm" id="plume-on">${ic('refresh')}${esc(T.plumeRetry)}</button></div></div>` : ''}</div>`;
+  } else {
+    body = `<div class="setting"><div>${head()}<p class="desc">${esc(T.plumeDesc)}</p><p class="desc">${esc(T.plumeA11y)}</p></div>
+      <button class="btn sm primary" id="plume-on">${ic('home')}${esc(T.plumeEnable)}</button>
+      <div class="more" id="plume-result"></div></div>`;
+  }
+  box.innerHTML = `<div class="panel">${body}</div>`;
+  box.hidden = false;
+  if (result) showPlumeResult(result);
+  $('#plume-refresh')?.addEventListener('click', () => drawPlume(rid, d));
+  const run = async (btn, action, busyLabel) => {
+    busy(btn, true, busyLabel);
+    let r;
+    try {
+      r = await api(url, { method: 'POST', body: { action } });
+    } catch (e) {
+      if (rid !== renderId) return;
+      if (e.status === 409) { toast(T.plumeGone, 'error'); drawPlume(rid, d); return; }
+      r = { ok: false, error: e.message, ...(e.data || {}) };
+    }
+    if (rid !== renderId) return;
+    r.action = action;
+    const ok = r.ok !== false;
+    toast(!ok ? (r.error || T.plumeKo) : action === 'disable' ? T.plumeOff : r.homeOk === true ? T.plumeOk : r.homeOk === false ? T.plumeTodo : T.plumeUnsure, ok && r.homeOk !== false ? '' : 'error');
+    drawPlume(rid, d, r);
+    drawHistory(rid, d.id);
+  };
+  $('#plume-on')?.addEventListener('click', (e) => run(e.currentTarget, 'enable', T.plumeEnableBusy));
+  $('#plume-off')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    if (!(await confirmBox({ title: T.plumeDisableTitle, html: `<p>${esc(T.plumeDisableConfirm)}</p>`, confirm: T.plumeDisableBtn }))) return;
+    run(btn, 'disable', T.plumeDisableBusy);
+  });
+}
+
+// Journal Plume : lignes texte ou { ok, text }
+const plumeLines = (list) => (Array.isArray(list) ? list : []).map((l) => (typeof l === 'string' ? { ok: true, text: l } : { ok: !!l && l.ok !== false, text: l && l.text != null ? l.text : String(l) }));
+const logList = (lines) => `<ul class="log">${lines.map((l) => `<li class="${l.ok ? '' : 'ko'}">${ic(l.ok ? 'check' : 'x')}<span>${esc(l.text)}</span></li>`).join('')}</ul>`;
+
+// Entrée d'historique « Plume » (à part, comme le retour au lanceur d'origine)
+function plumeHistItem(h, i) {
+  const lines = plumeLines(Array.isArray(h.steps) && h.steps.length ? h.steps : h.log);
+  const on = h.action === 'enable';
+  const homeOk = h.plume ? h.plume.homeOk : null;
+  const bad = lines.some((l) => !l.ok);
+  const [dot, state] = bad ? ['bad', T.plumeHistKo] : on && homeOk === false ? ['note', T.plumeHistTodo] : ['ok', T.plumeHistOk];
+  return `
+        <details class="disclose" ${i === 0 ? 'style="border-top:0"' : ''}>
+          <summary>${ic('chevron')}<span style="flex:1;display:flex;gap:10px;flex-wrap:wrap;align-items:center;color:var(--text)"><b>${esc(on ? T.plumeHistOn : T.plumeHistOff)}</b><span class="t2">${esc(fmtDate(h.at))}</span></span><span class="status"><span class="dot ${dot}"></span>${esc(state)}</span></summary>
+          <div class="body">${lines.length ? logList(lines) : `<p class="sm t3">${esc(T.plumeHistEmpty)}</p>`}</div>
+        </details>`;
+}
+
+// Résultat de la dernière action Plume, sous la carte (journal repliable)
+function showPlumeResult(r) {
+  const out = $('#plume-result');
+  if (!out) return;
+  const log = plumeLines(Array.isArray(r.steps) && r.steps.length ? r.steps : r.log);
+  const ok = r.ok !== false;
+  let kind; let msg;
+  if (!ok) { kind = 'warn'; msg = r.error || T.plumeKo; }
+  else if (r.action === 'disable') { kind = ''; msg = T.plumeOff; }
+  else if (r.homeOk === true) { kind = ''; msg = T.plumeOk; }
+  else if (r.homeOk === false) { kind = 'attn'; msg = T.plumeTodo; }
+  else { kind = 'attn'; msg = T.plumeUnsure; }
+  out.innerHTML = `
+    <div class="note ${kind}">${ic(kind ? (kind === 'warn' ? 'alert' : 'info') : 'check')}<div><b>${esc(msg)}</b></div></div>
+    ${log.length ? `<details class="disclose plume-log"><summary>${ic('chevron')}${esc(T.plumeLog)}</summary><div class="body">${logList(log)}</div></details>` : ''}`;
 }
 
 // Redémarrage hebdomadaire (enregistré à chaque changement) et redémarrage immédiat
@@ -1360,11 +1489,11 @@ async function drawHistory(rid, id) {
   if (rid !== renderId) return;
   const box = $('#history');
   if (!box) return;
-  const active = hist.filter((h) => !h.restored && h.type !== 'reset-launcher');
+  const active = hist.filter((h) => !h.restored && h.type !== 'reset-launcher' && h.type !== 'plume');
   box.innerHTML = `
     <div class="section-head"><h2>Historique</h2>${active.length ? `<button class="btn sm" id="restore-all">${ic('undo')}Tout restaurer</button>` : ''}</div>
     <div class="panel">
-      ${hist.length ? hist.map((h, i) => (h.type === 'reset-launcher' ? `
+      ${hist.length ? hist.map((h, i) => (h.type === 'plume' ? plumeHistItem(h, i) : h.type === 'reset-launcher' ? `
         <details class="disclose" ${i === 0 ? 'style="border-top:0"' : ''}>
           <summary>${ic('chevron')}<span style="flex:1;display:flex;gap:10px;flex-wrap:wrap;align-items:center;color:var(--text)"><b>${esc(T.homeHist)}</b><span class="t2">${esc(fmtDate(h.at))}</span>${h.home && h.home.after ? `<span class="t2">${esc(T.homeNow)} ${esc(homeName(h.home.after))}</span>` : ''}</span><span class="status"><span class="dot ${h.log.some((l) => !l.ok) ? 'bad' : 'ok'}"></span>${h.log.some((l) => !l.ok) ? 'Incomplet' : 'Fait'}</span></summary>
           <div class="body"><ul class="log">${h.log.map((l) => `<li class="${l.ok ? '' : 'ko'}">${ic(l.ok ? 'check' : 'x')}<span>${esc(l.text)}</span></li>`).join('')}</ul></div>

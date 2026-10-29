@@ -466,6 +466,19 @@ body.auth-mode main { padding-bottom: 48px; }
   #home-reset .setting { grid-template-columns: minmax(0, 1fr); gap: 12px; }
   #home-reset .setting > .btn { justify-self: start; }
 }
+/* ---------- Lanceur Plume */
+#plume .lbl svg.i { color: var(--text-3); }
+#plume .lbl .mono { font-weight: 400; }
+#plume .plume-state { margin-top: 8px; }
+#plume .more:empty { display: none; }
+#plume .plume-log { border: 1px solid var(--line); border-radius: 6px; }
+#plume .plume-log > summary { padding: 10px 14px; }
+#plume .plume-log > .body { padding: 0 14px 14px; }
+#plume .log li span { overflow-wrap: anywhere; min-width: 0; }
+@media (max-width: 760px) {
+  #plume .setting { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  #plume .setting > .btn { justify-self: start; max-width: 100%; white-space: normal; text-align: left; height: auto; min-height: 30px; padding: 7px 10px; line-height: 1.25; }
+}
 .check.is-off { cursor: not-allowed; color: var(--text-2); }
 .check.is-off input { opacity: .5; }
 #home-result .note:not(.warn) svg.i { color: var(--ok); }

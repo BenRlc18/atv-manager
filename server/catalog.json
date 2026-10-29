@@ -661,6 +661,7 @@
     "com.android.cellbroadcastreceiver",
     "com.tailscale.ipn",
     "io.github.benrlc18.atvmconnect",
+    "dev.plume",
     "com.tcl.factory.view",
     "com.tcl.initsetup",
     "com.android.tv.frameworkpackagestubs",
@@ -939,6 +940,7 @@
     "never": [
       "com.tailscale.ipn",
       "io.github.benrlc18.atvmconnect",
+      "dev.plume",
       "flar2.homebutton",
       "com.overdevs.at4k",
       "com.google.android.youtube.tv",

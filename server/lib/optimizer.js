@@ -625,6 +625,12 @@ async function restore(target, dev, { snapshot = 'all', pkg = null } = {}) {
     }
 
     for (const snap of todo) { // du plus récent au plus ancien
+      if (snap.type === 'plume') { // lanceur Plume : il rend le bouton Accueil au lanceur d'origine
+        await require('./plume').undo(target, (ok, text) => log.push({ ok, text }));
+        snap.restored = true;
+        snap.restoredAt = new Date().toISOString();
+        continue;
+      }
       const pkgs = [...snap.apps];
       if (snap.home?.stockDisabled) pkgs.push(snap.home.stockDisabled);
       if (snap.home?.rivalsDisabled) pkgs.push(...snap.home.rivalsDisabled);
@@ -818,4 +824,4 @@ async function audit(target, dev) {
   };
 }
 
-module.exports = { plan, apply, restore, resetLauncher, openStore, audit, LEVELS, catalog, isProtected };
+module.exports = { plan, apply, restore, resetLauncher, openStore, audit, withLock, LEVELS, catalog, isProtected };

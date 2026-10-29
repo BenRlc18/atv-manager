@@ -116,6 +116,15 @@ Les autres Android TV et Google TV ne sont pas concernées.
 
 Le code source de l'appli est dans `agent/` (Kotlin). L'APK est compilée par GitHub Actions : un tag `connect-vX.Y.Z` publie une release. Pour signer tes propres versions, ajoute les secrets `ATVM_KEYSTORE_B64` (PKCS12 en base64, alias `atvm`) et `ATVM_KEYSTORE_PASSWORD`.
 
+## Lanceur Plume
+
+Quand le lanceur **Plume** (`dev.plume`) est installé sur une TV (Android TV, Google TV ou Fire TV, en direct ou par ATVM Connect), la fiche de la TV permet d'en faire l'écran d'accueil :
+
+- **Activer** : permission `WRITE_SECURE_SETTINGS` accordée à Plume, son service d'accessibilité `dev.plume/dev.plume.HomeOverride` ajouté aux services déjà actifs (rien n'est écrasé), puis appui sur Accueil pour vérifier que Plume s'ouvre bien.
+- **Annuler** : seul le service de Plume est retiré (l'accessibilité est coupée si plus aucun service n'est actif) et la permission est reprise.
+
+Le lanceur d'origine n'est **jamais désactivé** : si Plume plante, la TV reste utilisable. Chaque action est enregistrée dans l'historique de la TV (« Tout restaurer » annule aussi Plume) et l'optimisation ne désactive jamais `dev.plume`. API : `GET /api/devices/:id/plume`, `POST /api/devices/:id/plume` avec `{"action": "enable" | "disable"}`.
+
 ## Lancer avec Docker
 
 ```bash
